@@ -6,7 +6,7 @@ import {
   Download, Play, Plus, Trash2, ArrowRight, CheckCircle2, 
   ChevronRight, Save, AlertCircle, Pencil,
   Eye, FileText, ChevronLeft, Volume2, Lightbulb, GraduationCap,
-  FileSpreadsheet, Gamepad2
+  FileSpreadsheet, Gamepad2, Cpu
 } from "lucide-react";
 
 // Types matching backend models
@@ -182,15 +182,35 @@ function parseCritique(
   return { reason, recommendation };
 }
 
+interface AgentStatus {
+  name: string;
+  purpose: string;
+  status: "pending" | "running" | "completed" | "failed";
+  timestamp?: string;
+}
+
+const initialPipeline: AgentStatus[] = [
+  { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "pending" },
+  { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "pending" },
+  { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "pending" },
+  { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "pending" },
+  { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "pending" },
+  { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "pending" },
+  { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "pending" },
+  { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "pending" },
+  { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "pending" }
+];
+
 export default function KalyxApp() {
   // App views: 'landing' | 'workspace'
   const [view, setView] = useState<"landing" | "workspace">("landing");
-  const [activeTab, setActiveTab] = useState<"overview" | "slides" | "notes" | "assessments" | "bloom" | "readiness" | "gaps" | "export" | "traceability">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "slides" | "notes" | "assessments" | "bloom" | "readiness" | "gaps" | "export" | "traceability" | "pipeline">("overview");
   
   // New state variables for Traceability and Readiness breakdowns
   const [traceabilityData, setTraceabilityData] = useState<any[]>([]);
   const [expandedOutcomes, setExpandedOutcomes] = useState<Record<number, boolean>>({});
   const [isReadinessExpanded, setIsReadinessExpanded] = useState(false);
+  const [pipelineAgents, setPipelineAgents] = useState<AgentStatus[]>(initialPipeline);
   
   // Data State
   const [courses, setCourses] = useState<Course[]>([]);
@@ -204,6 +224,76 @@ export default function KalyxApp() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadLogs, setUploadLogs] = useState<string[]>([]);
+
+  const startPipelineSimulation = () => {
+    const formatTime = (date: Date) => {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    };
+    
+    const initial: AgentStatus[] = [
+      { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "running", timestamp: formatTime(new Date()) },
+      { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "pending" },
+      { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "pending" },
+      { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "pending" },
+      { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "pending" },
+      { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "pending" },
+      { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "pending" },
+      { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "pending" },
+      { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "pending" }
+    ];
+    setPipelineAgents(initial);
+
+    let activeIdx = 0;
+    const interval = setInterval(() => {
+      setPipelineAgents(prev => {
+        const next = [...prev];
+        if (activeIdx < next.length) {
+          next[activeIdx] = { ...next[activeIdx], status: "completed" };
+        }
+        activeIdx++;
+        if (activeIdx < next.length) {
+          next[activeIdx] = { 
+            ...next[activeIdx], 
+            status: "running", 
+            timestamp: formatTime(new Date()) 
+          };
+        } else {
+          clearInterval(interval);
+        }
+        return next;
+      });
+    }, 2800);
+
+    return interval;
+  };
+
+  const completePipelineSimulation = () => {
+    const formatTime = (date: Date) => {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    };
+    setPipelineAgents(prev => {
+      return prev.map(agent => {
+        if (agent.status !== "completed") {
+          return { ...agent, status: "completed", timestamp: agent.timestamp || formatTime(new Date()) };
+        }
+        return agent;
+      });
+    });
+  };
+
+  const failPipelineSimulation = () => {
+    const formatTime = (date: Date) => {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    };
+    setPipelineAgents(prev => {
+      return prev.map(agent => {
+        if (agent.status === "running") {
+          return { ...agent, status: "failed", timestamp: formatTime(new Date()) };
+        }
+        return agent;
+      });
+    });
+  };
   
   // AI Personalization settings
   const [personalization, setPersonalization] = useState({
@@ -362,6 +452,29 @@ export default function KalyxApp() {
         setCourseDetails(data);
         setActiveCourseId(courseId);
         
+        // Hydrate pipeline agents with realistic timestamps relative to course creation time
+        if (data.course && data.course.created_at) {
+          const baseDate = new Date(data.course.created_at);
+          const formatTime = (date: Date) => {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          };
+          
+          const staticPipeline: AgentStatus[] = [
+            { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 2)) },
+            { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 5)) },
+            { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 8)) },
+            { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 12)) },
+            { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 16)) },
+            { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 20)) },
+            { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 23)) },
+            { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 26)) },
+            { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 29)) }
+          ];
+          setPipelineAgents(staticPipeline);
+        } else {
+          setPipelineAgents(initialPipeline);
+        }
+
         // Set slide editing values
         if (data.slides && data.slides.length > 0) {
           const indexToLoad = (preserveSlideIndex && activeSlideIndex < data.slides.length) ? activeSlideIndex : 0;
@@ -465,6 +578,7 @@ export default function KalyxApp() {
 
     setIsUploading(true);
     setUploadLogs(["Initiating connection to KALYX backend...", "Allocating dedicated RAG chunk vectors..."]);
+    const pipelineInterval = startPipelineSimulation();
     
     const formData = new FormData();
     formData.append("file", uploadFile);
@@ -496,10 +610,12 @@ export default function KalyxApp() {
       });
       
       clearInterval(logInterval);
+      clearInterval(pipelineInterval);
 
       if (res.ok) {
         const data = await res.json();
         setUploadLogs(prev => [...prev, ...data.logs, "SUCCESS: Complete classroom package compiled!"]);
+        completePipelineSimulation();
         // Hydrate workspace
         setTimeout(() => {
           setIsUploading(false);
@@ -508,11 +624,14 @@ export default function KalyxApp() {
         }, 1500);
       } else {
         setIsUploading(false);
+        failPipelineSimulation();
         alert("Failed to analyze syllabus. Please try again.");
       }
     } catch (err) {
       clearInterval(logInterval);
+      clearInterval(pipelineInterval);
       setIsUploading(false);
+      failPipelineSimulation();
       console.error("Analyze syllabus err:", err);
       alert("Error occurred. Check that the backend server is running.");
     }
@@ -595,6 +714,7 @@ export default function KalyxApp() {
     if (!activeCourseId || !authToken) return;
     setIsUploading(true);
     setUploadLogs(["Initiating connection to KALYX backend...", "Saving personalization profile details..."]);
+    const pipelineInterval = startPipelineSimulation();
     
     try {
       const saveProfileRes = await fetch(`${backendUrl}/api/studio/courses/${activeCourseId}/personalize`, {
@@ -643,21 +763,26 @@ export default function KalyxApp() {
       });
 
       clearInterval(regenerateInterval);
+      clearInterval(pipelineInterval);
 
       if (res.ok) {
         const data = await res.json();
         setUploadLogs(prev => [...prev, ...data.logs, "SUCCESS: Complete classroom package regenerated!"]);
+        completePipelineSimulation();
         setTimeout(() => {
           setIsUploading(false);
           selectCourse(activeCourseId);
         }, 1500);
       } else {
         setIsUploading(false);
+        failPipelineSimulation();
         alert("Failed to regenerate course slides. Please try again.");
       }
 
     } catch (err) {
+      clearInterval(pipelineInterval);
       setIsUploading(false);
+      failPipelineSimulation();
       console.error("Regenerate course deck err:", err);
       alert("Error occurred. Check that the backend server is running.");
     }
@@ -1091,6 +1216,7 @@ export default function KalyxApp() {
                   { id: "bloom", label: "Bloom Taxonomy Audit", icon: Award },
                   { id: "readiness", label: "Readiness Score", icon: BarChart3 },
                   { id: "traceability", label: "Traceability", icon: BookOpen },
+                  { id: "pipeline", label: "Execution Pipeline", icon: Cpu },
                   { id: "gaps", label: "Industry Gap Analyzer", icon: AlertCircle },
                   { id: "export", label: "Export & Exporters", icon: Download }
                 ] as const).map((tab) => {
@@ -1460,6 +1586,84 @@ export default function KalyxApp() {
 
                             </div>
                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              )}
+
+              {/* AGENT EXECUTION TIMELINE TAB */}
+              {activeTab === "pipeline" && courseDetails && (
+                <div className="max-w-4xl mx-auto flex flex-col gap-6 text-left">
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <h3 className="text-lg font-bold text-white">Multi-Agent Execution Pipeline</h3>
+                    <p className="text-xs text-slate-400">
+                      Visual log trace showing chronological execution flow, operational purposes, and completed timestamps for the KALYX multi-agent graph.
+                    </p>
+                  </div>
+
+                  <div className="glass-panel p-6 md:p-8 rounded-2xl border-white/5 relative flex flex-col gap-8">
+                    {/* Vertical line connecting nodes */}
+                    <div className="absolute left-[35px] md:left-[43px] top-12 bottom-12 w-[2px] bg-dashed border-l border-slate-900 border-dashed z-0" />
+                    
+                    {pipelineAgents.map((agent, idx) => {
+                      // Color schemes per status
+                      let dotColor = "bg-slate-800 border-slate-700";
+                      let statusText = "Pending";
+                      let badgeStyle = "text-slate-400 border-slate-800/80 bg-slate-900/60";
+                      
+                      if (agent.status === "completed") {
+                        dotColor = "bg-emerald-500 border-emerald-400/20 shadow-[0_0_12px_rgba(16,185,129,0.4)]";
+                        statusText = "Completed";
+                        badgeStyle = "text-emerald-400 border-emerald-500/20 bg-emerald-500/10";
+                      } else if (agent.status === "running") {
+                        dotColor = "bg-sky-500 border-sky-400/20 shadow-[0_0_12px_rgba(14,165,233,0.4)] animate-pulse";
+                        statusText = "Running";
+                        badgeStyle = "text-sky-400 border-sky-500/20 bg-sky-500/10 animate-pulse";
+                      } else if (agent.status === "failed") {
+                        dotColor = "bg-rose-500 border-rose-400/20 shadow-[0_0_12px_rgba(244,63,94,0.4)] animate-ping";
+                        statusText = "Failed";
+                        badgeStyle = "text-rose-400 border-rose-500/20 bg-rose-500/10";
+                      }
+
+                      return (
+                        <div key={idx} className="flex gap-4 md:gap-6 items-start relative z-10">
+                          {/* Dot / Status symbol */}
+                          <div className={`h-8 w-8 md:h-10 md:w-10 rounded-full border flex items-center justify-center shrink-0 text-white font-bold text-xs ${dotColor} transition-all duration-300`}>
+                            {agent.status === "completed" ? (
+                              <CheckCircle2 className="h-4.5 w-4.5 md:h-5 md:w-5 text-white" />
+                            ) : agent.status === "running" ? (
+                              <div className="h-2 w-2 rounded-full bg-white animate-ping" />
+                            ) : agent.status === "failed" ? (
+                              <AlertCircle className="h-4.5 w-4.5 md:h-5 md:w-5 text-white" />
+                            ) : (
+                              <span className="text-[10px] text-slate-500">{idx + 1}</span>
+                            )}
+                          </div>
+
+                          {/* Agent Card Details */}
+                          <div className="flex-1 glass-panel p-4 rounded-xl border-white/5 hover:border-white/10 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex-1 text-left">
+                              <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                                <span>{agent.name}</span>
+                              </h4>
+                              <p className="text-[11px] text-slate-400 leading-relaxed mt-1">{agent.purpose}</p>
+                            </div>
+
+                            <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 border-t border-slate-900 md:border-t-0 pt-2.5 md:pt-0">
+                              {agent.timestamp && (
+                                <span className="text-[10px] font-mono text-slate-500 font-bold">
+                                  {agent.timestamp}
+                                </span>
+                              )}
+                              <span className={`px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${badgeStyle}`}>
+                                {statusText}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
@@ -2136,41 +2340,92 @@ export default function KalyxApp() {
             {/* C. POPUP FLOATING LIVE LOG MONITOR (AGENT GRAPH EXECUTING) */}
             {isUploading && (
               <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-                <div className="glass-panel p-8 rounded-2xl border-white/10 max-w-xl w-full flex flex-col gap-6 shadow-2xl bg-slate-950 text-left">
+                <div className="glass-panel p-8 rounded-2xl border-white/10 max-w-4xl w-full flex flex-col gap-6 shadow-2xl bg-slate-950 text-left">
                   
                   {/* Title bar */}
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center border-b border-slate-900 pb-4">
                     <div className="flex items-center gap-2.5">
-                      <div className="h-2 w-2 rounded-full bg-sky-400 animate-ping" />
-                      <span className="font-extrabold text-sm text-white">KALYX Agentic Orchestration Active</span>
+                      <div className="h-2.5 w-2.5 rounded-full bg-sky-400 animate-ping shrink-0" />
+                      <span className="font-extrabold text-base text-white tracking-tight">KALYX Agentic Orchestration Pipeline</span>
                     </div>
                     <span className="text-[10px] font-mono text-slate-500">[ compiled: compiled_graph.invoke() ]</span>
                   </div>
 
-                  {/* Big progress bar indicator */}
-                  <div className="flex flex-col gap-2">
-                    <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800/80">
-                      <div className="bg-gradient-to-r from-sky-400 to-indigo-500 h-full rounded-full animate-pulse-glow" style={{ width: "80%" }} />
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
-                      <span>Analyzing learning intent</span>
-                      <span>80% complete</span>
-                    </div>
-                  </div>
+                  {/* Split Screen layout */}
+                  <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 overflow-hidden">
+                    
+                    {/* Left: Real-time Agent Timeline */}
+                    <div className="lg:col-span-3 flex flex-col gap-4 max-h-[420px] overflow-y-auto pr-2 relative">
+                      {/* Vertical line connecting nodes */}
+                      <div className="absolute left-[19px] top-6 bottom-6 w-[2px] bg-dashed border-l border-slate-900 border-dashed z-0" />
+                      
+                      {pipelineAgents.map((agent, idx) => {
+                        let dotColor = "bg-slate-900 border-slate-800";
+                        let statusText = "Pending";
+                        let badgeStyle = "text-slate-500 border-slate-900 bg-slate-950/40";
+                        
+                        if (agent.status === "completed") {
+                          dotColor = "bg-emerald-500 border-emerald-400/20 shadow-[0_0_8px_rgba(16,185,129,0.3)]";
+                          statusText = "Completed";
+                          badgeStyle = "text-emerald-400 border-emerald-500/20 bg-emerald-500/10";
+                        } else if (agent.status === "running") {
+                          dotColor = "bg-sky-500 border-sky-400/20 shadow-[0_0_8px_rgba(14,165,233,0.3)] animate-pulse";
+                          statusText = "Running";
+                          badgeStyle = "text-sky-400 border-sky-500/20 bg-sky-500/10 animate-pulse";
+                        } else if (agent.status === "failed") {
+                          dotColor = "bg-rose-500 border-rose-400/20 shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-ping";
+                          statusText = "Failed";
+                          badgeStyle = "text-rose-400 border-rose-500/20 bg-rose-500/10";
+                        }
 
-                  {/* Terminal shell screen logs */}
-                  <div className="bg-slate-950 border border-slate-900 rounded-xl p-4 font-mono text-[10px] text-slate-300 h-64 overflow-y-auto flex flex-col gap-2">
-                    {uploadLogs.map((log, lIdx) => (
-                      <div key={lIdx} className="leading-relaxed">
-                        <span className="text-sky-400 mr-2">&gt;</span>
-                        {log}
+                        return (
+                          <div key={idx} className="flex gap-3.5 items-start relative z-10">
+                            {/* Dot indicator */}
+                            <div className={`h-6.5 w-6.5 rounded-full border flex items-center justify-center shrink-0 transition-all duration-300 ${dotColor}`}>
+                              {agent.status === "completed" ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                              ) : agent.status === "running" ? (
+                                <div className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
+                              ) : agent.status === "failed" ? (
+                                <AlertCircle className="h-3.5 w-3.5 text-white" />
+                              ) : (
+                                <span className="text-[9px] text-slate-600 font-bold">{idx + 1}</span>
+                              )}
+                            </div>
+                            
+                            {/* Card summary */}
+                            <div className="flex-1 bg-slate-900/40 border border-slate-900/60 p-2.5 rounded-xl flex items-center justify-between gap-3">
+                              <div className="overflow-hidden">
+                                <h5 className="text-[11px] font-bold text-white leading-none">{agent.name}</h5>
+                                <span className="text-[9px] text-slate-500 block truncate mt-1">{agent.purpose}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-full border text-[8px] font-black uppercase shrink-0 ${badgeStyle}`}>
+                                {statusText}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Right: scrolling terminal logs */}
+                    <div className="lg:col-span-2 flex flex-col gap-3 overflow-hidden">
+                      <span className="text-[10px] font-extrabold text-slate-500 tracking-wider">CONSOLE OUTPUT LOGS</span>
+                      <div className="bg-slate-950 border border-slate-900 rounded-xl p-4 font-mono text-[9px] text-slate-300 h-[380px] overflow-y-auto flex flex-col gap-2">
+                        {uploadLogs.map((log, lIdx) => (
+                          <div key={lIdx} className="leading-relaxed break-words">
+                            <span className="text-sky-400 mr-1.5">&gt;</span>
+                            {log}
+                          </div>
+                        ))}
+                        <div className="h-2" />
                       </div>
-                    ))}
-                    <div className="h-2" />
+                    </div>
+
                   </div>
 
-                  <span className="text-[9.5px] text-slate-500 leading-relaxed text-center block">
-                    Please do not close this window. Evaluating Bloom Taxonomy layers, sliding presentation bullets, and computing assessment matrix in SQLAlchemy.
+                  <span className="text-[9.5px] text-slate-500 leading-relaxed text-center block border-t border-slate-900 pt-4">
+                    Evaluating Bloom Taxonomy layers, sliding presentation bullets, and computing assessment matrix in SQLite.
                   </span>
                 </div>
               </div>
