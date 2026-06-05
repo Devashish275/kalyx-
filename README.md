@@ -1,6 +1,6 @@
 # ✨ KALYX: Curriculum Intelligence Platform
 
-KALYX is an award-winning, enterprise-grade multi-agent curriculum intelligence platform designed for modern educators, academic directors, and training organizations. By orchestrating a pipeline of **9 specialized LangGraph agents** powered by **Google Gemini 2.5 Flash**, KALYX transforms a raw syllabus document (PDF/TXT) into a comprehensive, production-ready classroom package in minutes.
+KALYX is an , enterprise-grade multi-agent curriculum intelligence platform designed for modern educators, academic directors, and training organizations. By orchestrating a pipeline of **9 specialized LangGraph agents** powered by **Google Gemini 2.5 Flash**, KALYX transforms a raw syllabus document (PDF/TXT) into a comprehensive, production-ready classroom package in minutes.
 
 The platform automatically builds structured lesson outlines, slide content, instructor lecture scripts, question banks, cognitive audits, and modern industry gap analysis, exporting everything directly to premium PPTX slide decks, PDFs, Kahoot packages, and interactive quizzes.
 
