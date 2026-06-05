@@ -1970,19 +1970,15 @@ export default function KalyxApp() {
                           
                           let barColor = "bg-rose-500";
                           let textClass = "text-rose-400 border-rose-500/20 bg-rose-500/10";
-                          let statusText = "Needs Focus";
+                          let statusText = "Needs Improvement";
                           if (metric.val >= 90) {
                             barColor = "bg-emerald-500";
                             textClass = "text-emerald-400 border-emerald-500/20 bg-emerald-500/10";
                             statusText = "Excellent";
-                          } else if (metric.val >= 75) {
-                            barColor = "bg-teal-500";
-                            textClass = "text-teal-400 border-teal-500/20 bg-teal-500/10";
-                            statusText = "Proficient";
-                          } else if (metric.val >= 60) {
+                          } else if (metric.val >= 70) {
                             barColor = "bg-amber-500";
                             textClass = "text-amber-400 border-amber-500/20 bg-amber-500/10";
-                            statusText = "Developing";
+                            statusText = "Good";
                           }
 
                           return (

@@ -17,6 +17,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
+from app.security import limit_signup, limit_login
 
 # Pydantic schemas
 class UserSignup(BaseModel):
@@ -81,7 +82,7 @@ def get_current_user(
         raise credentials_exception
     return user
 
-@router.post("/signup", response_model=TokenResponse)
+@router.post("/signup", response_model=TokenResponse, dependencies=[Depends(limit_signup)])
 def signup(payload: UserSignup, db: Session = Depends(get_db)):
     # Check if user already exists (by email)
     existing_email = db.query(User).filter(User.email == payload.email).first()
@@ -116,7 +117,7 @@ def signup(payload: UserSignup, db: Session = Depends(get_db)):
         }
     }
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(limit_login)])
 def login(payload: UserLoginSchema, db: Session = Depends(get_db)):
     user = db.query(User).filter(
         (User.email == payload.username_or_email) | (User.username == payload.username_or_email)

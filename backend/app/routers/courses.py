@@ -12,6 +12,7 @@ from app.models import (
 )
 from app.agents.workflow import build_workflow
 from app.services.rag_service import process_and_index_document
+from app.security import limit_course_creation, limit_syllabus_upload, limit_analysis_generation
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
@@ -32,8 +33,18 @@ class CourseResponse(BaseModel):
 def list_courses(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(Course).filter(Course.user_id == current_user.id).all()
 
-@router.post("/")
+@router.post("/", dependencies=[Depends(limit_course_creation)])
 def create_course(payload: CourseCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not payload.title or not payload.title.strip():
+        raise HTTPException(
+            status_code=422,
+            detail=[{"loc": ["body", "title"], "msg": "Course title cannot be empty", "type": "value_error"}]
+        )
+    if not payload.description or not payload.description.strip():
+        raise HTTPException(
+            status_code=422,
+            detail=[{"loc": ["body", "description"], "msg": "Course description cannot be empty", "type": "value_error"}]
+        )
     course = Course(
         user_id=current_user.id,
         title=payload.title,
@@ -112,13 +123,43 @@ def delete_course(course_id: int, db: Session = Depends(get_db), current_user: U
     db.commit()
     return {"message": f"Course {course_id} deleted successfully"}
 
-@router.post("/{course_id}/analyze")
+@router.post("/{course_id}/analyze", dependencies=[Depends(limit_syllabus_upload)])
 def analyze_syllabus(
     course_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Validation checks
+    if not file.filename or not file.filename.strip():
+        raise HTTPException(
+            status_code=422,
+            detail=[{"loc": ["body", "file"], "msg": "No file uploaded", "type": "value_error"}]
+        )
+        
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in [".pdf", ".txt"]:
+        raise HTTPException(
+            status_code=422,
+            detail=[{"loc": ["body", "file"], "msg": "Unsupported file format. Only PDF and TXT are supported.", "type": "value_error"}]
+        )
+        
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    
+    if size == 0:
+        raise HTTPException(
+            status_code=422,
+            detail=[{"loc": ["body", "file"], "msg": "Uploaded syllabus file is empty", "type": "value_error"}]
+        )
+        
+    if size > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=422,
+            detail=[{"loc": ["body", "file"], "msg": "File is too large. Maximum size allowed is 10MB.", "type": "value_error"}]
+        )
+
     # 1. Verify course ownership
     course = db.query(Course).filter(Course.id == course_id, Course.user_id == current_user.id).first()
     if not course:
@@ -285,7 +326,7 @@ def analyze_syllabus(
         "logs": final_state["logs"]
     }
 
-@router.post("/{course_id}/regenerate")
+@router.post("/{course_id}/regenerate", dependencies=[Depends(limit_analysis_generation)])
 def regenerate_course_deck(
     course_id: int,
     db: Session = Depends(get_db),
