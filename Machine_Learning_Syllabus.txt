@@ -1,0 +1,30 @@
+Advanced Machine Learning and Intelligent Systems Syllabus
+Course Code: CS-409
+Institution: Stanford University
+Instructor: Dr. Devashish Jones
+
+Course Overview:
+This course covers theoretical and practical foundations of modern machine learning algorithms. Students will learn regression formulations, boundary separation classifiers, support vector machines, neural networks, backpropagation, and unsupervised clustering methods.
+
+Course Objectives:
+- Master supervised learning principles and regression optimization.
+- Contrast margin boundaries and formulate kernel classification using Support Vector Machines (SVMs).
+- Build multi-layer artificial neural networks and explain gradient backpropagation computations.
+- Analyze dimensionality reduction and execute PCA and clustering.
+
+Learning Modules:
+Module 1: Introduction & Regression Models
+- Topics: Supervised Learning Principles, Linear & Ridge Regression, Gradient Descent Optimization
+
+Module 2: Classification & SVMs
+- Topics: Logistic Regression, Support Vector Machines, Kernel Methods
+
+Module 3: Deep Neural Networks
+- Topics: Multi-Layer Perceptrons, Backpropagation, Regularization (Dropout, L2)
+
+Module 4: Unsupervised Learning & Clustering
+- Topics: K-Means Clustering, Principal Component Analysis (PCA), Autoencoders
+
+Recommended Textbooks:
+- Elements of Statistical Learning, Hastie et al.
+- Pattern Recognition and Machine Learning, Christopher Bishop.
