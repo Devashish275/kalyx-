@@ -1,14 +1,62 @@
 import os
+import re
+import requests
+import tempfile
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
+
+def get_keywords_from_text(text: str) -> str:
+    if not text:
+        return "technology"
+    cleaned = re.sub(r'[^a-zA-Z0-9\s]', '', text.lower())
+    words = cleaned.split()
+    stop_words = {"and", "or", "the", "a", "of", "with", "to", "in", "for", "on", "at", "by", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "but", "if", "then", "else", "when", "where", "why", "how", "what", "who", "which"}
+    filtered_words = [w for w in words if w not in stop_words and len(w) > 2]
+    if not filtered_words:
+        return "technology"
+    return ",".join(filtered_words[:3])
+
+def download_image_for_slide(slide_title: str, suggested_visuals: str) -> str:
+    """
+    Downloads a relevant image from LoremFlickr based on slide title/visual keywords.
+    Returns path to temporary file if successful, otherwise None.
+    """
+    keywords = get_keywords_from_text(slide_title)
+    if suggested_visuals:
+        vis_keywords = get_keywords_from_text(suggested_visuals)
+        keywords = f"{keywords},{vis_keywords}"
+    
+    url = f"https://loremflickr.com/400/300/{keywords}"
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code == 200 and len(r.content) > 1000:
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                f.write(r.content)
+                return f.name
+    except Exception as e:
+        print(f"Error downloading image: {e}")
+    
+    # Fallback to general technology/education image
+    try:
+        r = requests.get("https://loremflickr.com/400/300/technology,education", timeout=5)
+        if r.status_code == 200 and len(r.content) > 1000:
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                f.write(r.content)
+                return f.name
+    except Exception as e:
+        print(f"Error downloading fallback image: {e}")
+        
+    return None
+
 
 def generate_pptx_deck(slides_data: list, notes_data: list, output_path: str) -> str:
     """
     Generates an award-winning, startup-grade premium PPTX slide deck with speaker notes bound.
     """
     prs = Presentation()
+    temp_images = []
     
     # Choose premium theme colors (Accents, cards, and borders)
     DARK_NAVY = RGBColor(10, 15, 30)       # #0a0f1e
@@ -159,28 +207,62 @@ def generate_pptx_deck(slides_data: list, notes_data: list, output_path: str) ->
                 top_stripe.fill.fore_color.rgb = CYAN
                 top_stripe.line.fill.background()
 
-                # Visual Suggestion Textbox overlay inside the card
-                vis_box = slide.shapes.add_textbox(
-                    card_left + Inches(0.2), Inches(1.8), card_width - Inches(0.4), Inches(4.4)
-                )
-                tf_vis = vis_box.text_frame
-                tf_vis.word_wrap = True
+                # Try to download and add real photo
+                temp_img = download_image_for_slide(slide_title, visuals)
+                if temp_img:
+                    temp_images.append(temp_img)
+                    try:
+                        # Place image at the top of the card (4:3 aspect ratio)
+                        slide.shapes.add_picture(temp_img, card_left, Inches(1.75), width=card_width)
+                        
+                        # Add caption below the picture
+                        vis_box = slide.shapes.add_textbox(
+                            card_left + Inches(0.1), Inches(3.9), card_width - Inches(0.2), Inches(2.4)
+                        )
+                        tf_vis = vis_box.text_frame
+                        tf_vis.word_wrap = True
 
-                p_vis_hdr = tf_vis.paragraphs[0]
-                p_vis_hdr.text = "VISUAL COMPANION"
-                p_vis_hdr.font.name = "Arial"
-                p_vis_hdr.font.size = Pt(11)
-                p_vis_hdr.font.bold = True
-                p_vis_hdr.font.color.rgb = CYAN
-                p_vis_hdr.space_after = Pt(10)
+                        p_vis_hdr = tf_vis.paragraphs[0]
+                        p_vis_hdr.text = "VISUAL COMPANION"
+                        p_vis_hdr.font.name = "Arial"
+                        p_vis_hdr.font.size = Pt(10)
+                        p_vis_hdr.font.bold = True
+                        p_vis_hdr.font.color.rgb = CYAN
+                        p_vis_hdr.space_after = Pt(4)
 
-                p_vis_body = tf_vis.add_paragraph()
-                p_vis_body.text = visuals
-                p_vis_body.font.name = "Arial"
-                p_vis_body.font.size = Pt(11)
-                p_vis_body.font.italic = True
-                p_vis_body.font.color.rgb = MUTED_GRAY
-                p_vis_body.space_after = Pt(8)
+                        p_vis_body = tf_vis.add_paragraph()
+                        p_vis_body.text = visuals
+                        p_vis_body.font.name = "Arial"
+                        p_vis_body.font.size = Pt(9.5)
+                        p_vis_body.font.italic = True
+                        p_vis_body.font.color.rgb = MUTED_GRAY
+                    except Exception as img_err:
+                        print(f"Failed to place image on slide: {img_err}")
+                        temp_img = None
+
+                if not temp_img:
+                    # Visual Suggestion Textbox overlay inside the card (Fallback)
+                    vis_box = slide.shapes.add_textbox(
+                        card_left + Inches(0.2), Inches(1.8), card_width - Inches(0.4), Inches(4.4)
+                    )
+                    tf_vis = vis_box.text_frame
+                    tf_vis.word_wrap = True
+
+                    p_vis_hdr = tf_vis.paragraphs[0]
+                    p_vis_hdr.text = "VISUAL COMPANION"
+                    p_vis_hdr.font.name = "Arial"
+                    p_vis_hdr.font.size = Pt(11)
+                    p_vis_hdr.font.bold = True
+                    p_vis_hdr.font.color.rgb = CYAN
+                    p_vis_hdr.space_after = Pt(10)
+
+                    p_vis_body = tf_vis.add_paragraph()
+                    p_vis_body.text = visuals
+                    p_vis_body.font.name = "Arial"
+                    p_vis_body.font.size = Pt(11)
+                    p_vis_body.font.italic = True
+                    p_vis_body.font.color.rgb = MUTED_GRAY
+                    p_vis_body.space_after = Pt(8)
 
         # Bind Speaker/Instructor Notes to Slide Context
         note_match = notes_by_index.get(slide_index)
@@ -211,8 +293,19 @@ def generate_pptx_deck(slides_data: list, notes_data: list, output_path: str) ->
             tf_notes.text = "\n".join(notes_content)
 
     # Save presentation package
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    prs.save(output_path)
+    try:
+        dir_name = os.path.dirname(output_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+        prs.save(output_path)
+    finally:
+        # Clean up temp images
+        for temp_img in temp_images:
+            try:
+                if os.path.exists(temp_img):
+                    os.unlink(temp_img)
+            except Exception as cleanup_err:
+                print(f"Error cleaning up temp image {temp_img}: {cleanup_err}")
     return output_path
 
 
@@ -258,6 +351,7 @@ def generate_pdf_package(course_title: str, course_desc: str, slides: list, note
     pdf = KalyxPDF()
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
+    temp_images = []
     
     # ------------------ COVER PAGE ------------------
     pdf.add_page()
@@ -354,32 +448,76 @@ def generate_pdf_package(course_title: str, course_desc: str, slides: list, note
         
         # Visual Companion Box
         if visuals:
-            pdf.set_x(15)
-            pdf.set_fill_color(240, 249, 255) # Light cyan background
-            pdf.set_draw_color(186, 230, 253) # Light cyan border
+            temp_img = download_image_for_slide(title, visuals)
             
-            # Estimate height needed for visuals text to draw rect
-            text_lines = len(visuals) // 80 + 1
-            box_height = 8 + (text_lines * 5)
-            
-            x_pos = 15
-            y_pos = pdf.get_y()
-            
-            if y_pos + box_height > 270:
-                pdf.add_page()
+            if temp_img:
+                temp_images.append(temp_img)
+                # Estimate height needed for text on the right
+                text_lines = len(visuals) // 65 + 1
+                estimated_text_height = 9 + (text_lines * 4.5)
+                box_height = max(50, estimated_text_height)
+                
+                x_pos = 15
                 y_pos = pdf.get_y()
-            
-            pdf.rect(x_pos, y_pos, 180, box_height, "FD")
-            pdf.set_y(y_pos + 2)
-            pdf.set_x(18)
-            pdf.set_font("helvetica", "B", 8)
-            pdf.set_text_color(14, 165, 233)
-            pdf.cell(0, 4, "VISUAL COMPANION COMPONENT SUGGESTION:", ln=True)
-            pdf.set_x(18)
-            pdf.set_font("helvetica", "I", 9)
-            pdf.set_text_color(71, 85, 105)
-            pdf.multi_cell(174, 4.5, clean_txt(visuals))
-            pdf.set_y(y_pos + box_height + 4)
+                
+                if y_pos + box_height > 270:
+                    pdf.add_page()
+                    y_pos = pdf.get_y()
+                
+                pdf.set_fill_color(240, 249, 255) # Light cyan background
+                pdf.set_draw_color(186, 230, 253) # Light cyan border
+                pdf.rect(x_pos, y_pos, 180, box_height, "FD")
+                
+                # Draw the image
+                try:
+                    img_y = y_pos + (box_height - 45) / 2
+                    pdf.image(temp_img, x=18, y=img_y, w=60, h=45)
+                    
+                    # Draw text next to image
+                    pdf.set_y(y_pos + 4)
+                    pdf.set_x(82)
+                    pdf.set_font("helvetica", "B", 8)
+                    pdf.set_text_color(14, 165, 233)
+                    pdf.cell(0, 4, "VISUAL COMPANION COMPONENT SUGGESTION:", ln=True)
+                    
+                    pdf.set_y(y_pos + 9)
+                    pdf.set_x(82)
+                    pdf.set_font("helvetica", "I", 9)
+                    pdf.set_text_color(71, 85, 105)
+                    pdf.multi_cell(110, 4.5, clean_txt(visuals))
+                except Exception as img_err:
+                    print(f"Failed to place image on PDF: {img_err}")
+                    temp_img = None
+                
+                pdf.set_y(y_pos + box_height + 4)
+
+            if not temp_img:
+                pdf.set_x(15)
+                pdf.set_fill_color(240, 249, 255) # Light cyan background
+                pdf.set_draw_color(186, 230, 253) # Light cyan border
+                
+                # Estimate height needed for visuals text to draw rect
+                text_lines = len(visuals) // 80 + 1
+                box_height = 8 + (text_lines * 5)
+                
+                x_pos = 15
+                y_pos = pdf.get_y()
+                
+                if y_pos + box_height > 270:
+                    pdf.add_page()
+                    y_pos = pdf.get_y()
+                
+                pdf.rect(x_pos, y_pos, 180, box_height, "FD")
+                pdf.set_y(y_pos + 2)
+                pdf.set_x(18)
+                pdf.set_font("helvetica", "B", 8)
+                pdf.set_text_color(14, 165, 233)
+                pdf.cell(0, 4, "VISUAL COMPANION COMPONENT SUGGESTION:", ln=True)
+                pdf.set_x(18)
+                pdf.set_font("helvetica", "I", 9)
+                pdf.set_text_color(71, 85, 105)
+                pdf.multi_cell(174, 4.5, clean_txt(visuals))
+                pdf.set_y(y_pos + box_height + 4)
             
         # Instructor notes match
         note_match = notes_map.get(slide_idx)
@@ -495,6 +633,17 @@ def generate_pdf_package(course_title: str, course_desc: str, slides: list, note
             pdf.add_page()
             
     # Save PDF
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    pdf.output(output_path)
+    try:
+        dir_name = os.path.dirname(output_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+        pdf.output(output_path)
+    finally:
+        # Clean up temp images
+        for temp_img in temp_images:
+            try:
+                if os.path.exists(temp_img):
+                    os.unlink(temp_img)
+            except Exception as cleanup_err:
+                print(f"Error cleaning up temp image {temp_img}: {cleanup_err}")
     return output_path
