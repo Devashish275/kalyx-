@@ -7,47 +7,68 @@ from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 
-def get_keywords_from_text(text: str) -> str:
-    if not text:
-        return "technology"
-    cleaned = re.sub(r'[^a-zA-Z0-9\s]', '', text.lower())
-    words = cleaned.split()
-    stop_words = {"and", "or", "the", "a", "of", "with", "to", "in", "for", "on", "at", "by", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "but", "if", "then", "else", "when", "where", "why", "how", "what", "who", "which"}
-    filtered_words = [w for w in words if w not in stop_words and len(w) > 2]
-    if not filtered_words:
-        return "technology"
-    return ",".join(filtered_words[:3])
-
 def download_image_for_slide(slide_title: str, suggested_visuals: str) -> str:
     """
-    Downloads a relevant image from LoremFlickr based on slide title/visual keywords.
+    Downloads a high-quality, topic-relevant image from Unsplash or falls back to technology tags.
     Returns path to temporary file if successful, otherwise None.
     """
-    keywords = get_keywords_from_text(slide_title)
-    if suggested_visuals:
-        vis_keywords = get_keywords_from_text(suggested_visuals)
-        keywords = f"{keywords},{vis_keywords}"
+    # Combine title and visuals for search context
+    context = f"{slide_title or ''} {suggested_visuals or ''}".lower()
     
-    url = f"https://loremflickr.com/400/300/{keywords}"
+    # Map categories to beautiful, premium Unsplash technology/education image URLs
+    category_urls = {
+        "ai": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=600&auto=format&fit=crop&q=80",
+        "data": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=80",
+        "code": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80",
+        "server": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=80",
+        "network": "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&auto=format&fit=crop&q=80",
+        "security": "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop&q=80",
+        "hardware": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80",
+        "education": "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=600&auto=format&fit=crop&q=80",
+        "default": "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80"
+    }
+
+    # Match context to category
+    category = "default"
+    if any(k in context for k in ["neural", "deep learning", "artificial", "intelligence", "transformer", "llm", "gpt", "gemini", "attention", "weights", "model"]):
+        category = "ai"
+    elif any(k in context for k in ["regression", "data", "analytics", "graph", "scatter", "chart", "plot", "statistic", "analysis", "metrics", "evaluation"]):
+        category = "data"
+    elif any(k in context for k in ["database", "server", "cloud", "hosting", "sql", "query", "postgres", "mysql", "sqlite", "table", "schema", "transaction", "join"]):
+        category = "server"
+    elif any(k in context for k in ["network", "routing", "osi", "tcp/ip", "ethernet", "ip", "router", "packet", "handshake", "gateway"]):
+        category = "network"
+    elif any(k in context for k in ["security", "auth", "rate limit", "token", "jwt", "bcrypt", "crypt", "encryption", "firewall"]):
+        category = "security"
+    elif any(k in context for k in ["hardware", "processor", "cpu", "chip", "circuit", "memory", "page table", "thread", "mutex", "process"]):
+        category = "hardware"
+    elif any(k in context for k in ["code", "coding", "class", "inheritance", "polymorphism", "solid", "programming", "software", "function", "oop", "design pattern", "observer", "uml"]):
+        category = "code"
+    elif any(k in context for k in ["education", "school", "student", "course", "syllabus", "class", "learning", "outcome"]):
+        category = "education"
+
+    target_url = category_urls[category]
+    
+    # Try fetching Unsplash image
     try:
-        r = requests.get(url, timeout=5)
+        r = requests.get(target_url, timeout=5)
         if r.status_code == 200 and len(r.content) > 1000:
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
                 f.write(r.content)
                 return f.name
     except Exception as e:
-        print(f"Error downloading image: {e}")
-    
-    # Fallback to general technology/education image
+        print(f"Error downloading category image ({category}): {e}")
+
+    # Fallback to keyless LoremFlickr under technology category (guaranteed to exist, will never return cats)
     try:
-        r = requests.get("https://loremflickr.com/400/300/technology,education", timeout=5)
+        r = requests.get("https://loremflickr.com/400/300/technology", timeout=5)
         if r.status_code == 200 and len(r.content) > 1000:
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
                 f.write(r.content)
                 return f.name
     except Exception as e:
-        print(f"Error downloading fallback image: {e}")
-        
+        print(f"Error downloading fallback technology image: {e}")
+
     return None
 
 
