@@ -3,6 +3,7 @@ import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import jwt
 import bcrypt
@@ -77,29 +78,32 @@ def get_current_user(
     except jwt.PyJWTError:
         raise credentials_exception
         
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(func.lower(User.email) == func.lower(email.strip())).first()
     if user is None:
         raise credentials_exception
     return user
 
 @router.post("/signup", response_model=TokenResponse, dependencies=[Depends(limit_signup)])
 def signup(payload: UserSignup, db: Session = Depends(get_db)):
+    email_clean = payload.email.strip().lower()
+    username_clean = payload.username.strip().lower()
+
     # Check if user already exists (by email)
-    existing_email = db.query(User).filter(User.email == payload.email).first()
+    existing_email = db.query(User).filter(func.lower(User.email) == email_clean).first()
     if existing_email:
         raise HTTPException(status_code=400, detail="Email is already registered")
         
     # Check if username already taken
-    existing_username = db.query(User).filter(User.username == payload.username).first()
+    existing_username = db.query(User).filter(func.lower(User.username) == username_clean).first()
     if existing_username:
         raise HTTPException(status_code=400, detail="Username is already taken")
         
     hashed = hash_password(payload.password)
     user = User(
-        email=payload.email,
-        username=payload.username,
+        email=email_clean,
+        username=username_clean,
         hashed_password=hashed,
-        full_name=payload.full_name
+        full_name=payload.full_name.strip() if payload.full_name else None
     )
     db.add(user)
     db.commit()
@@ -119,8 +123,10 @@ def signup(payload: UserSignup, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(limit_login)])
 def login(payload: UserLoginSchema, db: Session = Depends(get_db)):
+    login_str = payload.username_or_email.strip()
     user = db.query(User).filter(
-        (User.email == payload.username_or_email) | (User.username == payload.username_or_email)
+        (func.lower(User.email) == func.lower(login_str)) | 
+        (func.lower(User.username) == func.lower(login_str))
     ).first()
     
     if not user or not verify_password(payload.password, user.hashed_password):

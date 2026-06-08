@@ -25,6 +25,22 @@ try:
         # Ignore if column already exists
         print(f"[Startup] SQLite migration check: {err}")
         pass
+    
+    # Ensure seeded users have their correct usernames
+    try:
+        from app.models import User
+        prof = db.query(User).filter(User.email == "professor.jones@stanford.edu").first()
+        if prof and not prof.username:
+            prof.username = "professor.jones"
+            db.commit()
+            print("[Startup] Fixed NULL username for professor.jones@stanford.edu")
+        dev = db.query(User).filter(User.email == "devashish@stanford.edu").first()
+        if dev and not dev.username:
+            dev.username = "devashish"
+            db.commit()
+            print("[Startup] Fixed NULL username for devashish@stanford.edu")
+    except Exception as err:
+        print(f"[Startup] Error updating seeded usernames: {err}")
     finally:
         db.close()
         
