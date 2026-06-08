@@ -214,6 +214,14 @@ export default function KalyxApp() {
   const [isReadinessExpanded, setIsReadinessExpanded] = useState(false);
   const [pipelineAgents, setPipelineAgents] = useState<AgentStatus[]>(initialPipeline);
 
+  const handleAuthError = () => {
+    localStorage.removeItem("kalyx_auth_token");
+    localStorage.removeItem("kalyx_auth_user");
+    setAuthToken(null);
+    setUser(null);
+    alert("Session expired or invalid. Please log in again.");
+  };
+
   const allCompleted = pipelineAgents.every(a => a.status === "completed");
   const totalDuration = allCompleted
     ? pipelineAgents.reduce((sum, a) => sum + (a.duration || 0), 0)
@@ -499,6 +507,8 @@ export default function KalyxApp() {
           const indexToLoad = (preserveSlideIndex && activeSlideIndex < data.slides.length) ? activeSlideIndex : 0;
           loadSlideEditState(data, indexToLoad);
         }
+      } else if (res.status === 401 || res.status === 403) {
+        handleAuthError();
       }
     } catch (err) {
       console.error("Get course details err:", err);
@@ -517,6 +527,8 @@ export default function KalyxApp() {
           // Auto select first course
           selectCourse(data[0].id, token);
         }
+      } else if (res.status === 401 || res.status === 403) {
+        handleAuthError();
       }
     } catch (err) {
       console.error("Fetch courses err:", err);
@@ -560,9 +572,15 @@ export default function KalyxApp() {
         setNewCourseTitle("");
         setNewCourseDesc("");
         setActiveTab("overview");
+      } else if (res.status === 401 || res.status === 403) {
+        handleAuthError();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to create package: ${errData.detail || errData.error || res.statusText || 'Unknown error'}`);
       }
     } catch (err) {
       console.error("Create course err:", err);
+      alert("Error connecting to backend server.");
     }
   };
 
