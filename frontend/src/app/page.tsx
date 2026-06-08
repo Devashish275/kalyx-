@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { API_URL } from "@/lib/config";
 import { 
   Sparkles, UploadCloud, BookOpen, Layers, Award, BarChart3, 
   Download, Play, Plus, Trash2, ArrowRight, CheckCircle2, 
@@ -332,7 +333,7 @@ export default function KalyxApp() {
   const [authFullName, setAuthFullName] = useState("");
   const [authError, setAuthError] = useState("");
 
-  const backendUrl = "http://127.0.0.1:8000";
+  const backendUrl = API_URL;
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -473,17 +474,21 @@ export default function KalyxApp() {
           { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "completed" },
           { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "completed" },
           { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "completed" }
-        ].map((agent, idx) => {
+        ].map((agent, idx): AgentStatus => {
           const tItem = telemetry?.find((t: any) => t.agent === agent.name);
           if (tItem) {
             return {
-              ...agent,
+              name: agent.name,
+              purpose: agent.purpose,
+              status: "completed",
               timestamp: `Completed • ${tItem.duration_seconds.toFixed(1)}s`,
               duration: tItem.duration_seconds
             };
           }
           return {
-            ...agent,
+            name: agent.name,
+            purpose: agent.purpose,
+            status: "completed",
             timestamp: `Step ${idx + 1} of 9`
           };
         });
