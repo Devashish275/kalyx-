@@ -15,3 +15,4 @@ class SharedState(TypedDict):
     personalization_profile: Dict[str, Any]  # style/tone instructions
     logs: List[str]  # Real-time state logging for agent steps
     current_agent: str  # active agent reporting name
+    pipeline_telemetry: List[Dict[str, Any]]  # Real agent execution start/end/duration metrics

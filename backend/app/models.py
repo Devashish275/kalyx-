@@ -58,6 +58,7 @@ class CurriculumAnalysis(Base):
     curriculum_map = Column(JSON, nullable=True)  # Structure: Modules, topics, subtopics
     gap_analysis = Column(JSON, nullable=True)     # Detected internal content/topic gaps
     industry_gap_report = Column(JSON, nullable=True) # Modern trends comparison
+    pipeline_telemetry = Column(JSON, nullable=True)  # Agent execution duration and timestamp telemetry
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     course = relationship("Course", back_populates="curriculum_analyses")

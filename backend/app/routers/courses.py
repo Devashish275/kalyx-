@@ -79,7 +79,8 @@ def get_course_details(course_id: int, db: Session = Depends(get_db), current_us
         "curriculum_analysis": {
             "curriculum_map": analysis.curriculum_map if analysis else None,
             "gap_analysis": analysis.gap_analysis if analysis else None,
-            "industry_gap_report": analysis.industry_gap_report if analysis else None
+            "industry_gap_report": analysis.industry_gap_report if analysis else None,
+            "pipeline_telemetry": getattr(analysis, "pipeline_telemetry", []) if analysis else []
         } if analysis else None,
         "learning_outcomes": [
             {"id": o.id, "text": o.outcome_text, "bloom_level": o.bloom_level} for o in outcomes
@@ -227,7 +228,8 @@ def analyze_syllabus(
         "industry_gap_report": {},
         "personalization_profile": personalization_profile,
         "logs": ["Starting multi-agent syllabus analysis pipeline..."],
-        "current_agent": "Curriculum Analysis Agent"
+        "current_agent": "Curriculum Analysis Agent",
+        "pipeline_telemetry": []
     }
     
     # Invoke State Graph
@@ -249,7 +251,8 @@ def analyze_syllabus(
         course_id=course_id,
         curriculum_map=final_state["curriculum_map"],
         gap_analysis=final_state["bloom_report"].get("recommendation", "Review learning modules completeness."),
-        industry_gap_report=final_state["industry_gap_report"]
+        industry_gap_report=final_state["industry_gap_report"],
+        pipeline_telemetry=final_state.get("pipeline_telemetry", [])
     )
     db.add(analysis)
     
@@ -323,7 +326,8 @@ def analyze_syllabus(
         "status": "Success",
         "message": "Syllabus processed and educational package generated successfully.",
         "course_id": course_id,
-        "logs": final_state["logs"]
+        "logs": final_state["logs"],
+        "pipeline_telemetry": final_state.get("pipeline_telemetry", [])
     }
 
 @router.post("/{course_id}/regenerate", dependencies=[Depends(limit_analysis_generation)])
@@ -361,7 +365,8 @@ def regenerate_course_deck(
         "industry_gap_report": {},
         "personalization_profile": personalization_profile,
         "logs": ["Initiating personalized multi-agent regeneration workflow..."],
-        "current_agent": "Curriculum Analysis Agent"
+        "current_agent": "Curriculum Analysis Agent",
+        "pipeline_telemetry": []
     }
     
     final_state = compiled_graph.invoke(initial_state)
@@ -378,7 +383,8 @@ def regenerate_course_deck(
         course_id=course_id,
         curriculum_map=final_state["curriculum_map"],
         gap_analysis=final_state["bloom_report"].get("recommendation", "Review learning modules completeness."),
-        industry_gap_report=final_state["industry_gap_report"]
+        industry_gap_report=final_state["industry_gap_report"],
+        pipeline_telemetry=final_state.get("pipeline_telemetry", [])
     )
     db.add(analysis)
     
@@ -444,7 +450,8 @@ def regenerate_course_deck(
         "status": "Success",
         "message": "Syllabus processed and educational package generated successfully.",
         "course_id": course_id,
-        "logs": final_state["logs"]
+        "logs": final_state["logs"],
+        "pipeline_telemetry": final_state.get("pipeline_telemetry", [])
     }
 
 @router.get("/{course_id}/traceability")

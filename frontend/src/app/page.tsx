@@ -187,6 +187,7 @@ interface AgentStatus {
   purpose: string;
   status: "pending" | "running" | "completed" | "failed";
   timestamp?: string;
+  duration?: number;
 }
 
 const initialPipeline: AgentStatus[] = [
@@ -205,12 +206,17 @@ export default function KalyxApp() {
   // App views: 'landing' | 'workspace'
   const [view, setView] = useState<"landing" | "workspace">("landing");
   const [activeTab, setActiveTab] = useState<"overview" | "slides" | "notes" | "assessments" | "bloom" | "readiness" | "gaps" | "export" | "traceability" | "pipeline">("overview");
-  
+
   // New state variables for Traceability and Readiness breakdowns
   const [traceabilityData, setTraceabilityData] = useState<any[]>([]);
   const [expandedOutcomes, setExpandedOutcomes] = useState<Record<number, boolean>>({});
   const [isReadinessExpanded, setIsReadinessExpanded] = useState(false);
   const [pipelineAgents, setPipelineAgents] = useState<AgentStatus[]>(initialPipeline);
+
+  const allCompleted = pipelineAgents.every(a => a.status === "completed");
+  const totalDuration = allCompleted
+    ? pipelineAgents.reduce((sum, a) => sum + (a.duration || 0), 0)
+    : 0;
   
   // Data State
   const [courses, setCourses] = useState<Course[]>([]);
@@ -226,12 +232,8 @@ export default function KalyxApp() {
   const [uploadLogs, setUploadLogs] = useState<string[]>([]);
 
   const startPipelineSimulation = () => {
-    const formatTime = (date: Date) => {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    };
-    
     const initial: AgentStatus[] = [
-      { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "running", timestamp: formatTime(new Date()) },
+      { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "running" },
       { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "pending" },
       { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "pending" },
       { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "pending" },
@@ -242,20 +244,23 @@ export default function KalyxApp() {
       { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "pending" }
     ];
     setPipelineAgents(initial);
-
+ 
     let activeIdx = 0;
     const interval = setInterval(() => {
       setPipelineAgents(prev => {
         const next = [...prev];
         if (activeIdx < next.length) {
-          next[activeIdx] = { ...next[activeIdx], status: "completed" };
+          next[activeIdx] = { 
+            ...next[activeIdx], 
+            status: "completed", 
+            timestamp: `Step ${activeIdx + 1} of 9` 
+          };
         }
         activeIdx++;
         if (activeIdx < next.length) {
           next[activeIdx] = { 
             ...next[activeIdx], 
-            status: "running", 
-            timestamp: formatTime(new Date()) 
+            status: "running"
           };
         } else {
           clearInterval(interval);
@@ -263,32 +268,36 @@ export default function KalyxApp() {
         return next;
       });
     }, 2800);
-
+ 
     return interval;
   };
-
-  const completePipelineSimulation = () => {
-    const formatTime = (date: Date) => {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    };
+ 
+  const completePipelineSimulation = (telemetry?: any[]) => {
     setPipelineAgents(prev => {
-      return prev.map(agent => {
-        if (agent.status !== "completed") {
-          return { ...agent, status: "completed", timestamp: agent.timestamp || formatTime(new Date()) };
+      return prev.map((agent, idx) => {
+        const tItem = telemetry?.find(t => t.agent === agent.name);
+        if (tItem) {
+          return {
+            ...agent,
+            status: "completed",
+            timestamp: `Completed • ${tItem.duration_seconds.toFixed(1)}s`,
+            duration: tItem.duration_seconds
+          };
         }
-        return agent;
+        return {
+          ...agent,
+          status: "completed",
+          timestamp: `Step ${idx + 1} of 9`
+        };
       });
     });
   };
-
+ 
   const failPipelineSimulation = () => {
-    const formatTime = (date: Date) => {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    };
     setPipelineAgents(prev => {
       return prev.map(agent => {
         if (agent.status === "running") {
-          return { ...agent, status: "failed", timestamp: formatTime(new Date()) };
+          return { ...agent, status: "failed" };
         }
         return agent;
       });
@@ -452,28 +461,33 @@ export default function KalyxApp() {
         setCourseDetails(data);
         setActiveCourseId(courseId);
         
-        // Hydrate pipeline agents with realistic timestamps relative to course creation time
-        if (data.course && data.course.created_at) {
-          const baseDate = new Date(data.course.created_at);
-          const formatTime = (date: Date) => {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        // Hydrate pipeline agents with actual telemetry or fallback to Option B step indicators
+        const telemetry = data.curriculum_analysis?.pipeline_telemetry;
+        const staticPipeline: AgentStatus[] = [
+          { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "completed" },
+          { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "completed" },
+          { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "completed" },
+          { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "completed" },
+          { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "completed" },
+          { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "completed" },
+          { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "completed" },
+          { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "completed" },
+          { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "completed" }
+        ].map((agent, idx) => {
+          const tItem = telemetry?.find((t: any) => t.agent === agent.name);
+          if (tItem) {
+            return {
+              ...agent,
+              timestamp: `Completed • ${tItem.duration_seconds.toFixed(1)}s`,
+              duration: tItem.duration_seconds
+            };
+          }
+          return {
+            ...agent,
+            timestamp: `Step ${idx + 1} of 9`
           };
-          
-          const staticPipeline: AgentStatus[] = [
-            { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 2)) },
-            { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 5)) },
-            { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 8)) },
-            { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 12)) },
-            { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 16)) },
-            { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 20)) },
-            { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 23)) },
-            { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 26)) },
-            { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "completed", timestamp: formatTime(new Date(baseDate.getTime() + 1000 * 29)) }
-          ];
-          setPipelineAgents(staticPipeline);
-        } else {
-          setPipelineAgents(initialPipeline);
-        }
+        });
+        setPipelineAgents(staticPipeline);
 
         // Set slide editing values
         if (data.slides && data.slides.length > 0) {
@@ -615,7 +629,7 @@ export default function KalyxApp() {
       if (res.ok) {
         const data = await res.json();
         setUploadLogs(prev => [...prev, ...data.logs, "SUCCESS: Complete classroom package compiled!"]);
-        completePipelineSimulation();
+        completePipelineSimulation(data.pipeline_telemetry);
         // Hydrate workspace
         setTimeout(() => {
           setIsUploading(false);
@@ -768,7 +782,7 @@ export default function KalyxApp() {
       if (res.ok) {
         const data = await res.json();
         setUploadLogs(prev => [...prev, ...data.logs, "SUCCESS: Complete classroom package regenerated!"]);
-        completePipelineSimulation();
+        completePipelineSimulation(data.pipeline_telemetry);
         setTimeout(() => {
           setIsUploading(false);
           selectCourse(activeCourseId);
@@ -1594,20 +1608,27 @@ export default function KalyxApp() {
                 </div>
               )}
 
-              {/* AGENT EXECUTION TIMELINE TAB */}
               {activeTab === "pipeline" && courseDetails && (
                 <div className="max-w-4xl mx-auto flex flex-col gap-6 text-left">
-                  
-                  <div className="flex flex-col gap-1.5">
-                    <h3 className="text-lg font-bold text-white">Multi-Agent Execution Pipeline</h3>
-                    <p className="text-xs text-slate-400">
-                      Visual log trace showing chronological execution flow, operational purposes, and completed timestamps for the KALYX multi-agent graph.
-                    </p>
-                  </div>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <h3 className="text-lg font-bold text-white">Multi-Agent Execution Pipeline</h3>
+                      <p className="text-xs text-slate-400">
+                        Visual log trace showing chronological execution flow, operational purposes, and completed timestamps for the KALYX multi-agent graph.
+                      </p>
+                    </div>
 
-                  <div className="glass-panel p-6 md:p-8 rounded-2xl border-white/5 relative flex flex-col gap-8">
-                    {/* Vertical line connecting nodes */}
-                    <div className="absolute left-[35px] md:left-[43px] top-12 bottom-12 w-[2px] bg-dashed border-l border-slate-900 border-dashed z-0" />
+                    {/* Pipeline Summary Box */}
+                    {totalDuration > 0 && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 text-left flex flex-col gap-1.5 shadow-lg shadow-emerald-500/2">
+                        <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">9-Agent Workflow Completed</div>
+                        <div className="text-lg font-black text-white">Total Execution Time: {totalDuration.toFixed(2)} seconds</div>
+                      </div>
+                    )}
+
+                    <div className="glass-panel p-6 md:p-8 rounded-2xl border-white/5 relative flex flex-col gap-8">
+                      {/* Vertical line connecting nodes */}
+                      <div className="absolute left-[35px] md:left-[43px] top-12 bottom-12 w-[2px] bg-dashed border-l border-slate-900 border-dashed z-0" />
                     
                     {pipelineAgents.map((agent, idx) => {
                       // Color schemes per status
@@ -1667,10 +1688,10 @@ export default function KalyxApp() {
                         </div>
                       );
                     })}
-                  </div>
+                    </div>
 
-                </div>
-              )}
+                  </div>
+                )}
 
               {/* SLIDES PREVIEW TAB (AI STUDIO) */}
               {activeTab === "slides" && courseDetails && (

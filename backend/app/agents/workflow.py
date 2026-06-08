@@ -1888,20 +1888,59 @@ def route_bloom_coverage(state: SharedState) -> str:
     else:
         return "readiness_score"
 
+def make_telemetry_agent(agent_fn, agent_name):
+    def wrapped_agent(state: SharedState) -> SharedState:
+        import time
+        from datetime import datetime
+        
+        start_time = time.time()
+        started_at = datetime.utcnow().isoformat() + "Z"
+        
+        new_state = agent_fn(state)
+        
+        end_time = time.time()
+        completed_at = datetime.utcnow().isoformat() + "Z"
+        duration = round(end_time - start_time, 2)
+        
+        telemetry_item = {
+            "agent": agent_name,
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "duration_seconds": duration,
+            "status": "completed"
+        }
+        
+        if "pipeline_telemetry" not in new_state or not isinstance(new_state["pipeline_telemetry"], list):
+            new_state["pipeline_telemetry"] = []
+            
+        existing_idx = -1
+        for idx, item in enumerate(new_state["pipeline_telemetry"]):
+            if item["agent"] == agent_name:
+                existing_idx = idx
+                break
+                
+        if existing_idx != -1:
+            new_state["pipeline_telemetry"][existing_idx] = telemetry_item
+        else:
+            new_state["pipeline_telemetry"].append(telemetry_item)
+            
+        return new_state
+    return wrapped_agent
+
 # Compile the Workflow Graph
 def build_workflow() -> StateGraph:
     workflow = StateGraph(SharedState)
     
-    # Register all 9 nodes
-    workflow.add_node("curriculum_analysis", curriculum_analysis_agent)
-    workflow.add_node("learning_outcome", learning_outcome_extraction_agent)
-    workflow.add_node("curriculum_planning", curriculum_planning_agent)
-    workflow.add_node("slide_generation", slide_generation_agent)
-    workflow.add_node("instructor_notes", instructor_notes_agent)
-    workflow.add_node("assessment_generation", assessment_generation_agent)
-    workflow.add_node("bloom_coverage", bloom_coverage_agent)
-    workflow.add_node("readiness_score", readiness_score_agent)
-    workflow.add_node("gap_analyzer", curriculum_gap_analyzer_agent)
+    # Register all 9 nodes wrapped in telemetry recorder
+    workflow.add_node("curriculum_analysis", make_telemetry_agent(curriculum_analysis_agent, "Curriculum Analysis Agent"))
+    workflow.add_node("learning_outcome", make_telemetry_agent(learning_outcome_extraction_agent, "Learning Outcome Extraction Agent"))
+    workflow.add_node("curriculum_planning", make_telemetry_agent(curriculum_planning_agent, "Curriculum Planning Agent"))
+    workflow.add_node("slide_generation", make_telemetry_agent(slide_generation_agent, "Slide Generation Agent"))
+    workflow.add_node("instructor_notes", make_telemetry_agent(instructor_notes_agent, "Instructor Notes Agent"))
+    workflow.add_node("assessment_generation", make_telemetry_agent(assessment_generation_agent, "Assessment Generation Agent"))
+    workflow.add_node("bloom_coverage", make_telemetry_agent(bloom_coverage_agent, "Bloom Coverage Agent"))
+    workflow.add_node("readiness_score", make_telemetry_agent(readiness_score_agent, "Readiness Score Agent"))
+    workflow.add_node("gap_analyzer", make_telemetry_agent(curriculum_gap_analyzer_agent, "Curriculum Gap Analyzer Agent"))
     
     # Establish entry point
     workflow.set_entry_point("curriculum_analysis")

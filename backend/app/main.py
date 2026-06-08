@@ -23,7 +23,16 @@ try:
         print("[Startup] SQLite migration: Added username column to users table.")
     except Exception as err:
         # Ignore if column already exists
-        print(f"[Startup] SQLite migration check: {err}")
+        print(f"[Startup] SQLite migration check (users.username): {err}")
+        pass
+        
+    try:
+        db.execute(text("ALTER TABLE curriculum_analysis ADD COLUMN pipeline_telemetry JSON"))
+        db.commit()
+        print("[Startup] SQLite migration: Added pipeline_telemetry column to curriculum_analysis table.")
+    except Exception as err:
+        # Ignore if column already exists
+        print(f"[Startup] SQLite migration check (curriculum_analysis.pipeline_telemetry): {err}")
         pass
     
     # Ensure seeded users have their correct usernames
