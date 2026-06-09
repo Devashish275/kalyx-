@@ -52,7 +52,7 @@ kalyx/
 | [`backend/app/main.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/main.py) | Application entrypoint. Syncs database, registers CORS, mounts routers. | `FastAPI`, `SQLAlchemy`, `Uvicorn` | Port & Host Env variables | Running FastAPI server instance | Direct startup command |
 | [`backend/app/models.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/models.py) | Database schema mappings using SQLAlchemy ORM. | `SQLAlchemy` | Base schemas declarations | SQL Tables models | All backend files |
 | [`backend/app/database.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/database.py) | Database connection & session pool manager. | `SQLAlchemy` | Local SQLite URL (`sqlite:///./kalyx.db`) | Database Session pools | main.py, routers, workflow.py |
-| [`backend/app/agents/workflow.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/agents/workflow.py) | Compiles the 9-agent LangGraph workflow, prompt templates, fallbacks, and LLM queries. | `langgraph`, `google-genai`, `Pydantic` | Syllabus text, personalization preferences | Final state dictionary with generated deck, assessments, notes | courses.py, studio.py |
+| [`backend/app/agents/workflow.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/agents/workflow.py) | Compiles the 4-agent LangGraph workflow, prompt templates, fallbacks, and LLM queries. | `langgraph`, `google-genai`, `Pydantic` | Syllabus text, personalization preferences | Final state dictionary with generated deck, assessments, notes | courses.py, studio.py |
 | [`backend/app/agents/state.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/agents/state.py) | Defines the Pydantic type signatures for the LangGraph workspace. | `typing` | None | Pydantic model for state variables | workflow.py |
 | [`backend/app/routers/auth.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/routers/auth.py) | Auth controller. Signups, JWT validation, logins, password crypts. | `bcrypt`, `pyjwt`, `FastAPI` | Password, Email, Visited scopes | JWT bearer tokens | main.py, other routers |
 | [`backend/app/routers/courses.py`](file:///Users/devashishpandey/Documents/kalyx/backend/app/routers/courses.py) | Course manager. Handles syllabus uploads and execution. | `FastAPI`, `shutil`, `workflow.py` | Syllabus uploads, text fields | JSON metadata, execution logs | main.py |
@@ -98,13 +98,13 @@ sequenceDiagram
     BE->>DB: Insert new course row
     BE-->>FE: Returns new Course model (Auto-selected)
     
-    User->>FE: Uploads Syllabus (PDF/TXT) -> Clicks "Trigger 9-Agent Analysis"
+    User->>FE: Uploads Syllabus (PDF/TXT) -> Clicks "Trigger 4-Agent Analysis"
     FE->>BE: POST /api/courses/{course_id}/analyze (Multi-part Form file)
     BE->>BE: Write file to uploads/ folder & extract text (via PDFReader)
     BE->>BE: Split text to chunks & write embeddings index to DB
     BE->>AG: build_workflow() -> invoke(initial_state)
     
-    Note over AG, Gemini: 9-Agent Loop runs sequentially (Details in Section 7)
+    Note over AG, Gemini: 4-Agent Loop runs sequentially (Details in Section 7)
     AG->>Gemini: Prompts with syllabus & structured output models
     Gemini-->>AG: Returns validated JSON schemas
     AG->>AG: Loop back if Bloom coverage < 75% (Conditional edge)
@@ -188,7 +188,7 @@ The backend is a robust REST API written in FastAPI, configured with modular rou
 | `/api/courses/` | POST | Token | `CourseCreate` | `CourseResponse` | Creates a new Course. |
 | `/api/courses/{course_id}` | GET | Token | None | `CourseDetails` | Fetches course metadata, curriculum mapping, outcomes, slides, speaker notes, assessments, and scores. |
 | `/api/courses/{course_id}` | DELETE | Token | None | `{"message": "Course deleted"}` | Cascades and deletes all course-related database records. |
-| `/api/courses/{course_id}/analyze` | POST | Token | Form-data (File) | `{"status": "Success", "logs": [...]}` | Parses syllabus upload, builds RAG indexes, runs the 9-agent LangGraph pipeline, and saves structured outputs. |
+| `/api/courses/{course_id}/analyze` | POST | Token | Form-data (File) | `{"status": "Success", "logs": [...]}` | Parses syllabus upload, builds RAG indexes, runs the 4-agent LangGraph pipeline, and saves structured outputs. |
 | `/api/courses/{course_id}/regenerate` | POST | Token | None | `{"status": "Success", "logs": [...]}` | Re-runs LangGraph workflow utilizing saved personalization profiles. |
 | `/api/studio/slides/{slide_id}` | PUT | Token | `SlideUpdatePayload` | `{"status": "Success", ...}` | Updates GeneratedSlide row contents. |
 | `/api/studio/notes/{note_id}` | PUT | Token | `NoteUpdatePayload` | `{"status": "Success", ...}` | Updates InstructorNote row contents. |
@@ -329,20 +329,15 @@ The orchestrator utilizes **LangGraph** to build a structured multi-agent state 
 
 ```mermaid
 graph TD
-    START([START]) --> curriculum_analysis
-    curriculum_analysis --> learning_outcome
-    learning_outcome --> curriculum_planning
-    curriculum_planning --> slide_generation
-    slide_generation --> instructor_notes
-    instructor_notes --> assessment_generation
-    assessment_generation --> bloom_coverage
+    START([START]) --> curriculum_intelligence
+    curriculum_intelligence --> content_generation
+    content_generation --> assessment_intelligence
     
-    bloom_coverage --> route_bloom{route_bloom_coverage}
-    route_bloom -- Avg Bloom < 75% & loops < 1 --> learning_outcome
-    route_bloom -- Otherwise --> readiness_score
+    assessment_intelligence --> route_bloom{route_bloom_coverage}
+    route_bloom -- Avg Bloom < 75% & loops < 1 --> curriculum_intelligence
+    route_bloom -- Otherwise --> curriculum_evaluation
     
-    readiness_score --> gap_analyzer
-    gap_analyzer --> END([END])
+    curriculum_evaluation --> END([END])
 
     style route_bloom fill:#1e1b4b,stroke:#818cf8,stroke-width:2px;
 ```
@@ -364,7 +359,7 @@ graph TD
     *   `personalization_profile`: Style and tone overrides.
     *   `logs`: Audit string trace.
     *   `current_agent`: Running workflow step tracker.
-*   **Self-Healing Bloom Loop**: After `bloom_coverage` calculates cognitive coverage, `route_bloom_coverage` checks if the average coverage score is below 75%. If yes, and the loop hasn't run yet, it routes back to `learning_outcome` to re-extract and balance learning outcomes. Otherwise, it moves to `readiness_score`.
+*   **Self-Healing Bloom Loop**: After `assessment_intelligence` calculates cognitive coverage, `route_bloom_coverage` checks if the average coverage score is below 75%. If yes, and the loop hasn't run yet, it routes back to `curriculum_intelligence` to re-extract and balance learning outcomes. Otherwise, it moves to `curriculum_evaluation`.
 *   **Fallback Protections**: If Gemini API returns a rate limit exception or is offline, each agent catches the error and falls back to mock generator logic (derived from syllabus keywords like "machine learning" or "data"). This guarantees that the pipeline completes successfully.
 
 ---
@@ -379,7 +374,7 @@ KALYX features a complete Retrieval-Augmented Generation (RAG) vector index pipe
     *   *Offline Fallback*: If the Gemini API key is missing, a local deterministic 768-dimension vector generator (using MD5 hashes of chunk text mapped onto sine curves) is used to ensure stability.
 3.  **Vector Storage**: Vectors are stored directly inside the `embeddings` SQLite table as a JSON-serialized list of floats.
 4.  **Retrieval Search**: During analysis, queries (e.g. `modern industrial requirements`) are embedded, and an in-memory cosine similarity search runs over all document embeddings.
-5.  **Agent Integration**: The RAG context is injected into Agent 8 (Readiness Score) and Agent 9 (Curriculum Gap Analyzer) to cross-reference the syllabus against professional guidelines.
+5.  **Agent Integration**: The RAG context is injected into the Curriculum Evaluation Agent (Readiness Score and Industry Gap Analysis) to cross-reference the syllabus against professional guidelines.
 
 ---
 
@@ -555,7 +550,7 @@ All Gemini integration code is contained in [`backend/app/agents/workflow.py`](f
 KALYX simplifies the transition from a raw syllabus to classroom-ready materials:
 
 1.  **Upload (0:00 - 1:00)**: The educator uploads a syllabus document (PDF/TXT). The backend processes the document, creates RAG vectors, and indexes them in the database.
-2.  **Analysis (1:00 - 3:00)**: The 9-agent LangGraph pipeline runs:
+2.  **Analysis (1:00 - 3:00)**: The 4-agent LangGraph pipeline runs:
     *   Deconstructs content into structural modules.
     *   Maps outcomes and compiles lesson roadmaps.
     *   Generates slide decks and speaker talking points.
@@ -568,7 +563,7 @@ KALYX simplifies the transition from a raw syllabus to classroom-ready materials
 
 ### Key Strengths
 *   **Structured Outputs**: Using Pydantic validation schemas with Google GenAI ensures database writes are reliable.
-*   **Orchestration**: The 9-agent LangGraph pipeline provides structured analysis step logs.
+*   **Orchestration**: The 4-agent LangGraph pipeline provides structured analysis step logs.
 *   **Exports**: The exporter supports PPTX, PDF, Kahoot CSV, and interactive HTML.
 
 ### Opportunities for Scale
