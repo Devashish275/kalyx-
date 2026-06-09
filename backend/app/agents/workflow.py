@@ -37,22 +37,36 @@ def call_llm(system_prompt: str, user_prompt: str, response_format: str = "json"
             response_schema = schema_dict
 
     client = genai.Client(api_key=api_key)
-    try:
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json" if (response_format == "json" or response_schema is not None) else "text/plain",
-            response_schema=response_schema,
-            temperature=0.2
-        )
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=user_prompt,
-            config=config
-        )
-        return response.text
-    except Exception as e:
-        logger.error(f"Error calling Google Gemini API: {e}")
-        raise e
+    import time
+    backoff_times = [2, 4, 8, 16]
+    attempt = 0
+    while True:
+        try:
+            config = types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json" if (response_format == "json" or response_schema is not None) else "text/plain",
+                response_schema=response_schema,
+                temperature=0.2
+            )
+            response = client.models.generate_content(
+                model='gemini-flash-lite-latest',
+                contents=user_prompt,
+                config=config
+            )
+            return response.text
+        except Exception as e:
+            err_str = str(e)
+            is_transient = "429" in err_str or "503" in err_str or "RESOURCE_EXHAUSTED" in err_str or "UNAVAILABLE" in err_str
+            
+            if is_transient and attempt < len(backoff_times):
+                sleep_time = backoff_times[attempt]
+                logger.warning(f"[Gemini API] Rate limit or transient error ({err_str}). Retrying in {sleep_time}s...")
+                time.sleep(sleep_time)
+                attempt += 1
+            else:
+                logger.error(f"Error calling Google Gemini API: {e}")
+                raise e
+
 
 # PYDANTIC STRUCTURED OUT-SCHEMAS (Enforcing educational standards at runtime)
 class ModuleItem(BaseModel):
@@ -135,6 +149,23 @@ class IndustryGapReport(BaseModel):
     status: str
     missing_topics: List[str]
     recommendations: List[str]
+
+class CurriculumIntelligence(BaseModel):
+    curriculum_map: CurriculumMap
+    learning_outcomes: List[LearningOutcomeItem]
+    curriculum_plan: CurriculumPlan
+
+class ContentGeneration(BaseModel):
+    slide_deck: List[SlideItem]
+    instructor_notes: List[NoteItem]
+
+class AssessmentIntelligence(BaseModel):
+    assessments: List[AssessmentItem]
+    bloom_report: BloomReport
+
+class CurriculumEvaluation(BaseModel):
+    readiness_score: ReadinessScore
+    industry_gap_report: IndustryGapReport
 
 # MOCK DATA GENERATORS (Safety-net fallback for flawless offline operations)
 def get_ml_fallback_data(syllabus_text: str, personalization: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -1535,52 +1566,24 @@ def get_ml_fallback_data(syllabus_text: str, personalization: Dict[str, Any] = N
             }
         }
 
-# AGENT 1: Curriculum Analysis Agent
-def curriculum_analysis_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 1: Curriculum Analysis Agent started.")
-    state["current_agent"] = "Curriculum Analysis Agent"
+# Combined Agent 1: Curriculum Intelligence
+def curriculum_intelligence_agent(state: SharedState) -> SharedState:
+    state["logs"].append("Curriculum Intelligence Agent started.")
+    state["current_agent"] = "Curriculum Intelligence Agent"
     
+    if state.get("error_info"):
+        state["logs"].append("Curriculum Intelligence Agent skipped due to previous error.")
+        return state
+        
     course_id = state.get("course_id")
     rag_context = ""
     if course_id:
         try:
             db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="syllabus course details topics modules", limit=5)
+            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="syllabus course details topics modules learning outcomes objectives", limit=8)
             db.close()
             if chunks:
                 rag_context = "\n### RELEVANT SYLLABUS REFERENCE CHUNKS:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
-        except Exception as e:
-            logger.warning(f"RAG context search bypassed: {e}")
-            
-    try:
-        sys_prompt = "You are a Principal Curriculum Architect and Director of Academic Studies. Extract the core title, structured modules, and comprehensive topics from the syllabus text and context. If RAG context is provided, enrich your analysis using those deep content references. Identify structural gaps or missing basic sections. Return JSON matching the schema."
-        user_prompt = f"Analyze the following syllabus:\n{state['syllabus_text']}\n{rag_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=CurriculumMap)
-        data = json.loads(res)
-        state["curriculum_map"] = data
-        state["logs"].append("Agent 1: Curriculum map successfully extracted via LLM.")
-    except Exception as e:
-        logger.error(f"Agent 1 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["curriculum_map"] = fallback["curriculum_map"]
-        state["logs"].append("Agent 1: Curriculum map extracted (using contextual fallback).")
-        
-    return state
-
-# AGENT 2: Learning Outcome Extraction Agent
-def learning_outcome_extraction_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 2: Learning Outcome Extraction Agent started.")
-    state["current_agent"] = "Learning Outcome Extraction Agent"
-    
-    course_id = state.get("course_id")
-    rag_context = ""
-    if course_id:
-        try:
-            db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="course learning outcomes objectives syllabus", limit=5)
-            db.close()
-            if chunks:
-                rag_context = "\n### RELEVANT CURRICULUM CONTEXT CHUNKS:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
         except Exception as e:
             logger.warning(f"RAG context search bypassed: {e}")
             
@@ -1590,62 +1593,54 @@ def learning_outcome_extraction_agent(state: SharedState) -> SharedState:
         if any("Audit Alert" in log for log in state["logs"]):
             alert_context = "\n### ACCREDITATION AUDIT WARNING:\nYour previous curriculum plan had insufficient higher-order Bloom levels. You MUST inject at least 4 advanced learning outcomes mapped strictly to 'Evaluating' or 'Creating' cognitive levels to ensure curriculum balance."
 
-        sys_prompt = "You are a Senior Pedagogical Expert. Formulate clear, actionable, measurable learning outcomes matching the course structure. Map each outcome to a specific cognitive level from Bloom's Revised Taxonomy (Remembering, Understanding, Applying, Analyzing, Evaluating, Creating) using active educational action verbs. Return JSON matching the schema."
-        user_prompt = f"Analyze curriculum map: {json.dumps(state['curriculum_map'])}\n{rag_context}\n{alert_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=LearningOutcomesList)
+        sys_prompt = (
+            "You are a Principal Curriculum Architect, Director of Academic Studies, and Pedagogical Expert. "
+            "Extract the core course title, structured modules, and comprehensive topics from the syllabus. "
+            "Formulate clear, actionable, measurable learning outcomes matching the course structure, mapped to specific Bloom's Revised Taxonomy levels. "
+            "Logically sequence all module topics into a detailed, week-by-week term roadmap of at least 15 to 20 detailed lessons/weeks. "
+            "Return JSON matching the schema."
+        )
+        user_prompt = f"Analyze the following syllabus:\n{state['syllabus_text']}\n{rag_context}\n{alert_context}"
+        
+        res = call_llm(sys_prompt, user_prompt, response_schema=CurriculumIntelligence)
         data = json.loads(res)
-        state["learning_outcomes"] = data.get("learning_outcomes", [])
-        state["logs"].append("Agent 2: Learning outcomes successfully formulated via LLM.")
+        
+        state["curriculum_map"] = data["curriculum_map"]
+        # Convert outcomes back to list of dicts to preserve types matching SharedState
+        state["learning_outcomes"] = [{"id": o["id"], "text": o["text"], "bloom_level": o["bloom_level"]} for o in data["learning_outcomes"]]
+        state["curriculum_plan"] = data["curriculum_plan"]
+        state["logs"].append("Curriculum Intelligence successfully processed via LLM.")
     except Exception as e:
-        logger.error(f"Agent 2 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["learning_outcomes"] = fallback["learning_outcomes"]
-        state["logs"].append("Agent 2: Learning outcomes formulated (using contextual fallback).")
+        logger.error(f"Curriculum Intelligence Error: {e}")
+        err_str = str(e)
+        err_type = "429" if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str else "503" if "503" in err_str or "UNAVAILABLE" in err_str else "500"
+        state["error_info"] = {
+            "status": "partial_generation",
+            "failed_agent": "Curriculum Intelligence Agent",
+            "error_type": err_type,
+            "successful_agents": [],
+            "retry_recommended": True
+        }
+        state["logs"].append(f"Curriculum Intelligence Agent failed: {err_str}")
         
     return state
 
-# AGENT 3: Curriculum Planning Agent
-def curriculum_planning_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 3: Curriculum Planning Agent started.")
-    state["current_agent"] = "Curriculum Planning Agent"
+
+# Combined Agent 2: Content Generation
+def content_generation_agent(state: SharedState) -> SharedState:
+    state["logs"].append("Content Generation Agent started.")
+    state["current_agent"] = "Content Generation Agent"
     
+    if state.get("error_info"):
+        state["logs"].append("Content Generation Agent skipped due to previous error.")
+        return state
+        
     course_id = state.get("course_id")
     rag_context = ""
     if course_id:
         try:
             db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="lesson sequence calendar roadmap week schedule", limit=5)
-            db.close()
-            if chunks:
-                rag_context = "\n### RELEVANT ROADMAP CONTEXT CHUNKS:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
-        except Exception as e:
-            logger.warning(f"RAG context search bypassed: {e}")
-            
-    try:
-        sys_prompt = "You are an Academic Operations Sequence Expert. Logically sequence all module topics into a detailed, comprehensive week-by-week calendar schedule. To support generating an extensive slide deck, you MUST generate at least 15 to 20 detailed lessons/weeks. Split complex topics into multiple detailed parts if needed. Set clear study objectives for each lesson. Return JSON matching the schema."
-        user_prompt = f"Create lesson roadmap from: {json.dumps(state['curriculum_map'])}\n{rag_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=CurriculumPlan)
-        state["curriculum_plan"] = json.loads(res)
-        state["logs"].append("Agent 3: Curriculum teaching sequence generated via LLM.")
-    except Exception as e:
-        logger.error(f"Agent 3 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["curriculum_plan"] = fallback["curriculum_plan"]
-        state["logs"].append("Agent 3: Curriculum teaching sequence sequenced (using contextual fallback).")
-        
-    return state
-
-# AGENT 4: Slide Generation Agent
-def slide_generation_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 4: Slide Generation Agent started.")
-    state["current_agent"] = "Slide Generation Agent"
-    
-    course_id = state.get("course_id")
-    rag_context = ""
-    if course_id:
-        try:
-            db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="course content core concepts theory details", limit=5)
+            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="course content core concepts theory details lecture explanations teaching notes student examples", limit=5)
             db.close()
             if chunks:
                 rag_context = "\n### RELEVANT CONCEPT DETAILS:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
@@ -1659,193 +1654,93 @@ def slide_generation_agent(state: SharedState) -> SharedState:
             style_instruction = f" Apply style/theme: {personalization.get('style', 'Sleek Dark Mode')} and tone: {personalization.get('tone', 'Professional & Academic')}."
             if personalization.get("customInstructions"):
                 style_instruction += f" Additional instructions: {personalization.get('customInstructions')}"
-                
-        sys_prompt = f"You are an Elite Instructional Designer. Generate beautiful, logically organized, highly detailed slides based on the curriculum sequence. To ensure the presentation is extensive, you MUST generate at least 15 to 20 slides in total (one corresponding to each lesson in the sequence). Avoid superficial single-word placeholders. Craft complete concepts, clear explanations, and specific visual design layout descriptions for each slide to ensure maximum aesthetic quality. Return JSON matching the schema.{style_instruction}"
-        user_prompt = f"Generate slide deck for plan: {json.dumps(state['curriculum_plan'])}\n{rag_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=SlideDeck)
+
+        sys_prompt = (
+            "You are an Elite Instructional Designer and Expert Educator. "
+            "Generate beautiful, logically organized, highly detailed slides based on the curriculum sequence. "
+            "You MUST generate at least 15 to 20 slides in total (one corresponding to each lesson in the sequence). "
+            "For each slide, construct complete concepts, clear explanations, and specific visual design layout descriptions. "
+            "For each slide note, generate at least 6-8 lecture talking points/explanations, detailed interactive pedagogy tips, whiteboard layout guidelines, and at least 4-6 concrete real-world clarifying examples. "
+            f"Return JSON matching the schema.{style_instruction}"
+        )
+        user_prompt = f"Generate slide deck and notes for plan: {json.dumps(state['curriculum_plan'])}\n{rag_context}"
+        
+        res = call_llm(sys_prompt, user_prompt, response_schema=ContentGeneration)
         data = json.loads(res)
-        state["slide_deck"] = data.get("slides", [])
-        state["logs"].append("Agent 4: Presentation slides drafted via LLM.")
-    except Exception as e:
-        logger.error(f"Agent 4 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["slide_deck"] = fallback["slide_deck"]
-        state["logs"].append("Agent 4: Presentation slides drafted (using contextual fallback).")
         
-    return state
-
-# AGENT 5: Instructor Notes Agent
-def instructor_notes_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 5: Instructor Notes Agent started.")
-    state["current_agent"] = "Instructor Notes Agent"
-    
-    course_id = state.get("course_id")
-    rag_context = ""
-    if course_id:
-        try:
-            db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="lecture explanations teaching notes student examples", limit=5)
-            db.close()
-            if chunks:
-                rag_context = "\n### RELEVANT LECTURE CONTEXT CHUNKS:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
-        except Exception as e:
-            logger.warning(f"RAG context search bypassed: {e}")
-            
-    try:
-        personalization = state.get("personalization_profile", {})
-        style_instruction = ""
-        if personalization:
-            style_instruction = f" Apply lecture presentation tone: {personalization.get('tone', 'Professional & Academic')} and visual theme context: {personalization.get('style', 'Sleek Dark Mode')}."
-            if personalization.get("customInstructions"):
-                style_instruction += f" Additional guidelines: {personalization.get('customInstructions')}"
-                
-        sys_prompt = f"You are an Elite Teacher Coach. Generate a comprehensive set of master-class instructor notes for EVERY slide in the slide deck (at least 15 to 20 slide notes in total). For each slide note, you MUST generate more than 5 detailed talking points (at least 6-8 comprehensive, specific points), detailed interactive pedagogy tips, whiteboard layout guidelines, and at least 4-6 concrete real-world clarifying examples (you MUST generate at least 4 examples per slide note). Return JSON matching the schema.{style_instruction}"
-        user_prompt = f"Generate instructor notes matching this slide deck: {json.dumps(state['slide_deck'])}\n{rag_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=InstructorNotesList)
-        data = json.loads(res)
-        state["instructor_notes"] = data.get("notes", [])
-        state["logs"].append("Agent 5: Master lecture talking points generated via LLM.")
+        state["slide_deck"] = data["slide_deck"]
+        state["instructor_notes"] = data["instructor_notes"]
+        state["logs"].append("Content Generation successfully processed via LLM.")
     except Exception as e:
-        logger.error(f"Agent 5 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["instructor_notes"] = fallback["instructor_notes"]
-        state["logs"].append("Agent 5: Master lecture talking points logged (using contextual fallback).")
-        
-    return state
-
-# AGENT 6: Assessment Generation Agent
-def assessment_generation_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 6: Assessment Generation Agent started.")
-    state["current_agent"] = "Assessment Generation Agent"
-    
-    course_id = state.get("course_id")
-    rag_context = ""
-    if course_id:
-        try:
-            db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="assessments exams quizzes questions learning outcomes", limit=5)
-            db.close()
-            if chunks:
-                rag_context = "\n### RELEVANT ASSESSMENTS CONTEXT:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
-        except Exception as e:
-            logger.warning(f"RAG context search bypassed: {e}")
-            
-    try:
-        sys_prompt = "You are a Psychometric Evaluator and Examination Director. Design highly rigorous multiple-choice assessment questions (MCQs with options and correct answers). You MUST generate at least 20 distinct high-quality multiple-choice questions (MCQs) in the assessment bank covering all aspects of the curriculum. Do not generate any other question formats like short answers, long answers, or viva questions. Every question must be of type 'MCQ' and include options and correct_answer. Map each question to a specific learning outcome ID and cognitive Bloom level. Return JSON matching the schema."
-        user_prompt = f"Create assessment bank based on learning outcomes: {json.dumps(state['learning_outcomes'])}\n{rag_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=AssessmentBank)
-        data = json.loads(res)
-        state["assessment_bank"] = data.get("assessments", [])
-        state["logs"].append("Agent 6: Course assessments created via LLM.")
-    except Exception as e:
-        logger.error(f"Agent 6 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["assessment_bank"] = fallback["assessment_bank"]
-        state["logs"].append("Agent 6: Course assessments generated (using contextual fallback).")
-        
-    return state
-
-# AGENT 7: Bloom Coverage Agent
-def bloom_coverage_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 7: Bloom Coverage Agent started.")
-    state["current_agent"] = "Bloom Coverage Agent"
-    
-    course_id = state.get("course_id")
-    rag_context = ""
-    if course_id:
-        try:
-            db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="outcomes assessments cognitive levels", limit=5)
-            db.close()
-            if chunks:
-                rag_context = "\n### RELEVANT AUDIT REFERENCE CHUNKS:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
-        except Exception as e:
-            logger.warning(f"RAG context search bypassed: {e}")
-            
-    try:
-        sys_prompt = "You are an Educational Quality Assurance Auditor. Review all learning outcomes and assessments. Calculate the exact cognitive balance across the six Bloom dimensions. Provide high-impact recommendations to improve cognitive depth. Return JSON matching the schema."
-        user_prompt = f"Audit outcomes: {json.dumps(state['learning_outcomes'])} and assessments: {json.dumps(state['assessment_bank'])}\n{rag_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=BloomReport)
-        state["bloom_report"] = json.loads(res)
-        state["logs"].append("Agent 7: Bloom's taxonomy balance report audited via LLM.")
-    except Exception as e:
-        logger.error(f"Agent 7 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["bloom_report"] = fallback["bloom_report"]
-        state["logs"].append("Agent 7: Bloom's taxonomy balance audited (using contextual fallback).")
-        
-    return state
-
-# AGENT 8: Readiness Score Agent
-def readiness_score_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 8: Readiness Score Agent started.")
-    state["current_agent"] = "Readiness Score Agent"
-    
-    # 1. Run Quantitative Mathematical Analysis in Python
-    outcomes_count = len(state.get("learning_outcomes", []))
-    slides_count = len(state.get("slide_deck", []))
-    assessments_count = len(state.get("assessment_bank", []))
-    avg_bloom = state.get("bloom_report", {}).get("average_coverage", 70.0)
-    
-    outcome_coverage = min(25.0, float(outcomes_count) * 3.5)
-    bloom_coverage = min(20.0, float(avg_bloom) * 0.20)
-    assessment_quality = min(20.0, float(assessments_count) * 2.0)
-    completeness = min(20.0, float(slides_count) * 1.8)
-    industry_relevance = 15.0 if state.get("industry_gap_report", {}).get("status") == "Modern" else 11.5
-    
-    math_baseline_score = outcome_coverage + bloom_coverage + assessment_quality + completeness + industry_relevance
-
-    course_id = state.get("course_id")
-    rag_context = ""
-    if course_id:
-        try:
-            db = SessionLocal()
-            chunks = retrieve_relevant_chunks(db, course_id=course_id, query="course quality outcomes requirements", limit=5)
-            db.close()
-            if chunks:
-                rag_context = "\n### RELEVANT COMPLIANCE CHUNKS:\n" + "\n".join([f"- {c['chunk_text']}" for c in chunks])
-        except Exception as e:
-            logger.warning(f"RAG context search bypassed: {e}")
-            
-    try:
-        sys_prompt = "You are an Accreditation Board Lead Reviewer. Assess curriculum readiness. We have pre-calculated a rigorous mathematical baseline readiness score based on physical deliverables. You must refine this score using qualitative review and compile an authoritative, accrediting-agency critique. Return JSON matching the schema."
-        user_prompt = f"""
-        MATHEMATICAL BASELINE ANALYSIS:
-        - Baseline Total Score: {math_baseline_score:.1f}/100
-        - Outcomes Count: {outcomes_count} (Score Component: {outcome_coverage:.1f}/25)
-        - Slide Deck Count: {slides_count} (Score Component: {completeness:.1f}/20)
-        - Assessment Bank Count: {assessments_count} (Score Component: {assessment_quality:.1f}/20)
-        - Average Bloom Coverage: {avg_bloom:.1f}% (Score Component: {bloom_coverage:.1f}/20)
-        - Industry Gap status baseline component: {industry_relevance:.1f}/15
-        
-        Syllabus details: {json.dumps(state['curriculum_map'])}
-        Bloom Report: {json.dumps(state['bloom_report'])}
-        {rag_context}
-        """
-        res = call_llm(sys_prompt, user_prompt, response_schema=ReadinessScore)
-        state["readiness_score"] = json.loads(res)
-        state["logs"].append("Agent 8: Final curriculum readiness score computed via LLM.")
-    except Exception as e:
-        logger.error(f"Agent 8 Error: {e}")
-        # Fallback values calculated safely in Python
-        state["readiness_score"] = {
-            "score": math_baseline_score,
-            "completeness": completeness * 5.0, # scale to 100
-            "outcome_coverage": outcome_coverage * 4.0,
-            "assessment_quality": assessment_quality * 5.0,
-            "bloom_coverage": avg_bloom,
-            "industry_relevance": industry_relevance * 6.6,
-            "breakdown": {"Overall Score": f"Accreditation baseline of {math_baseline_score:.1f}/100 calculated programmatically based on physical deliverables count."}
+        logger.error(f"Content Generation Error: {e}")
+        err_str = str(e)
+        err_type = "429" if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str else "503" if "503" in err_str or "UNAVAILABLE" in err_str else "500"
+        state["error_info"] = {
+            "status": "partial_generation",
+            "failed_agent": "Content Generation Agent",
+            "error_type": err_type,
+            "successful_agents": ["Curriculum Intelligence Agent"],
+            "retry_recommended": True
         }
-        state["logs"].append("Agent 8: Final curriculum readiness score compiled (using mathematical baseline fallback).")
+        state["logs"].append(f"Content Generation Agent failed: {err_str}")
         
     return state
 
-# AGENT 9: Curriculum Gap Analyzer Agent
-def curriculum_gap_analyzer_agent(state: SharedState) -> SharedState:
-    state["logs"].append("Agent 9: Curriculum Gap Analyzer Agent started.")
-    state["current_agent"] = "Curriculum Gap Analyzer Agent"
+
+# Combined Agent 3: Assessment Intelligence
+def assessment_intelligence_agent(state: SharedState) -> SharedState:
+    state["logs"].append("Assessment Intelligence Agent started.")
+    state["current_agent"] = "Assessment Intelligence Agent"
     
+    if state.get("error_info"):
+        state["logs"].append("Assessment Intelligence Agent skipped due to previous error.")
+        return state
+        
+    try:
+        sys_prompt = (
+            "You are a Psychometric Evaluator, Examination Director, and Educational Quality Assurance Auditor. "
+            "Design highly rigorous multiple-choice assessment questions (MCQs with options and correct answers). "
+            "You MUST generate at least 20 distinct high-quality MCQs covering all aspects of the curriculum mapped to learning outcomes. "
+            "Review the learning outcomes and assessments to calculate the exact cognitive balance across the six Bloom dimensions, "
+            "and provide high-impact recommendations to improve cognitive depth. "
+            "Return JSON matching the schema."
+        )
+        user_prompt = (
+            f"Generate assessments and Bloom audit for outcomes: {json.dumps(state['learning_outcomes'])} "
+            f"and slides: {json.dumps(state['slide_deck'])}"
+        )
+        
+        res = call_llm(sys_prompt, user_prompt, response_schema=AssessmentIntelligence)
+        data = json.loads(res)
+        
+        state["assessment_bank"] = data["assessments"]
+        state["bloom_report"] = data["bloom_report"]
+        state["logs"].append("Assessment Intelligence successfully processed via LLM.")
+    except Exception as e:
+        logger.error(f"Assessment Intelligence Error: {e}")
+        err_str = str(e)
+        err_type = "429" if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str else "503" if "503" in err_str or "UNAVAILABLE" in err_str else "500"
+        state["error_info"] = {
+            "status": "partial_generation",
+            "failed_agent": "Assessment Intelligence Agent",
+            "error_type": err_type,
+            "successful_agents": ["Curriculum Intelligence Agent", "Content Generation Agent"],
+            "retry_recommended": True
+        }
+        state["logs"].append(f"Assessment Intelligence Agent failed: {err_str}")
+        
+    return state
+
+
+# Combined Agent 4: Curriculum Evaluation
+def curriculum_evaluation_agent(state: SharedState) -> SharedState:
+    state["logs"].append("Curriculum Evaluation Agent started.")
+    state["current_agent"] = "Curriculum Evaluation Agent"
+    
+    if state.get("error_info"):
+        state["logs"].append("Curriculum Evaluation Agent skipped due to previous error.")
+        return state
+        
     course_id = state.get("course_id")
     rag_context = ""
     if course_id:
@@ -1859,34 +1754,61 @@ def curriculum_gap_analyzer_agent(state: SharedState) -> SharedState:
             logger.warning(f"RAG context search bypassed: {e}")
             
     try:
-        sys_prompt = "You are a Silicon Valley Tech Lead and Curriculum Modernization Lead. Compare the curriculum structure against active 2026 industrial requirements, missing modern tools, and professional paradigms. Return JSON matching the schema."
-        user_prompt = f"Audit syllabus against modern tech landscape: {json.dumps(state['curriculum_map'])}\n{rag_context}"
-        res = call_llm(sys_prompt, user_prompt, response_schema=IndustryGapReport)
-        state["industry_gap_report"] = json.loads(res)
-        state["logs"].append("Agent 9: Industry gap analysis & modernization report finalized via LLM.")
+        sys_prompt = (
+            "You are a Curriculum Quality Director, Silicon Valley Tech Lead, and Industry Readiness Auditor. "
+            "Evaluate the overall quality, completeness, and readiness of the generated course deck on a scale of 0 to 100. "
+            "Compare the course topics against modern technology and industry requirements to identify missing critical topics and recommend updates. "
+            "Return JSON matching the schema."
+        )
+        user_prompt = (
+            f"Evaluate course readiness and gaps for curriculum: {json.dumps(state['curriculum_map'])}, "
+            f"outcomes: {json.dumps(state['learning_outcomes'])}, slides: {json.dumps(state['slide_deck'])}, "
+            f"assessments: {json.dumps(state['assessment_bank'])}, and Bloom audit: {json.dumps(state['bloom_report'])}.\n"
+            f"Industrial context: {rag_context}"
+        )
+        
+        res = call_llm(sys_prompt, user_prompt, response_schema=CurriculumEvaluation)
+        data = json.loads(res)
+        
+        state["readiness_score"] = data["readiness_score"]
+        state["industry_gap_report"] = data["industry_gap_report"]
+        state["logs"].append("Curriculum Evaluation successfully processed via LLM.")
     except Exception as e:
-        logger.error(f"Agent 9 Error: {e}")
-        fallback = get_ml_fallback_data(state["syllabus_text"], state.get("personalization_profile"))
-        state["industry_gap_report"] = fallback["industry_gap_report"]
-        state["logs"].append("Agent 9: Industry gap analysis finalized (using contextual fallback).")
+        logger.error(f"Curriculum Evaluation Error: {e}")
+        err_str = str(e)
+        err_type = "429" if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str else "503" if "503" in err_str or "UNAVAILABLE" in err_str else "500"
+        state["error_info"] = {
+            "status": "partial_generation",
+            "failed_agent": "Curriculum Evaluation Agent",
+            "error_type": err_type,
+            "successful_agents": ["Curriculum Intelligence Agent", "Content Generation Agent", "Assessment Intelligence Agent"],
+            "retry_recommended": True
+        }
+        state["logs"].append(f"Curriculum Evaluation Agent failed: {err_str}")
         
     state["logs"].append("LangGraph workflow execution completed successfully.")
     state["current_agent"] = "Done"
+
     return state
 
 # Helper conditional function for self-healing Bloom taxonomy loops
 def route_bloom_coverage(state: SharedState) -> str:
+    if state.get("error_info"):
+        return "curriculum_evaluation"
+        
     report = state.get("bloom_report", {})
+    if not report:
+        return "curriculum_evaluation"
     avg = report.get("average_coverage", 100)
     
     # Count previous loop iterations in the logs
     loops = sum(1 for log in state.get("logs", []) if "Triggering self-healing feedback loop" in log)
     
     if avg < 75 and loops < 1:
-        state["logs"].append("Audit Alert: Higher-order Bloom cognitive coverage is below 75%. Triggering self-healing feedback loop back to Agent 2 to enrich outcome balance.")
-        return "learning_outcome"
+        state["logs"].append("Audit Alert: Higher-order Bloom cognitive coverage is below 75%. Triggering self-healing feedback loop back to Curriculum Intelligence Agent to enrich outcome balance.")
+        return "curriculum_intelligence"
     else:
-        return "readiness_score"
+        return "curriculum_evaluation"
 
 def make_telemetry_agent(agent_fn, agent_name):
     def wrapped_agent(state: SharedState) -> SharedState:
@@ -1931,39 +1853,30 @@ def make_telemetry_agent(agent_fn, agent_name):
 def build_workflow() -> StateGraph:
     workflow = StateGraph(SharedState)
     
-    # Register all 9 nodes wrapped in telemetry recorder
-    workflow.add_node("curriculum_analysis", make_telemetry_agent(curriculum_analysis_agent, "Curriculum Analysis Agent"))
-    workflow.add_node("learning_outcome", make_telemetry_agent(learning_outcome_extraction_agent, "Learning Outcome Extraction Agent"))
-    workflow.add_node("curriculum_planning", make_telemetry_agent(curriculum_planning_agent, "Curriculum Planning Agent"))
-    workflow.add_node("slide_generation", make_telemetry_agent(slide_generation_agent, "Slide Generation Agent"))
-    workflow.add_node("instructor_notes", make_telemetry_agent(instructor_notes_agent, "Instructor Notes Agent"))
-    workflow.add_node("assessment_generation", make_telemetry_agent(assessment_generation_agent, "Assessment Generation Agent"))
-    workflow.add_node("bloom_coverage", make_telemetry_agent(bloom_coverage_agent, "Bloom Coverage Agent"))
-    workflow.add_node("readiness_score", make_telemetry_agent(readiness_score_agent, "Readiness Score Agent"))
-    workflow.add_node("gap_analyzer", make_telemetry_agent(curriculum_gap_analyzer_agent, "Curriculum Gap Analyzer Agent"))
+    # Register the 4 combined nodes wrapped in telemetry recorder
+    workflow.add_node("curriculum_intelligence", make_telemetry_agent(curriculum_intelligence_agent, "Curriculum Intelligence Agent"))
+    workflow.add_node("content_generation", make_telemetry_agent(content_generation_agent, "Content Generation Agent"))
+    workflow.add_node("assessment_intelligence", make_telemetry_agent(assessment_intelligence_agent, "Assessment Intelligence Agent"))
+    workflow.add_node("curriculum_evaluation", make_telemetry_agent(curriculum_evaluation_agent, "Curriculum Evaluation Agent"))
     
     # Establish entry point
-    workflow.set_entry_point("curriculum_analysis")
+    workflow.set_entry_point("curriculum_intelligence")
     
     # Sequential flow edges
-    workflow.add_edge("curriculum_analysis", "learning_outcome")
-    workflow.add_edge("learning_outcome", "curriculum_planning")
-    workflow.add_edge("curriculum_planning", "slide_generation")
-    workflow.add_edge("slide_generation", "instructor_notes")
-    workflow.add_edge("instructor_notes", "assessment_generation")
-    workflow.add_edge("assessment_generation", "bloom_coverage")
+    workflow.add_edge("curriculum_intelligence", "content_generation")
+    workflow.add_edge("content_generation", "assessment_intelligence")
     
     # Conditional routing edge for self-healing taxonomy auditing
     workflow.add_conditional_edges(
-        "bloom_coverage",
+        "assessment_intelligence",
         route_bloom_coverage,
         {
-            "learning_outcome": "learning_outcome",
-            "readiness_score": "readiness_score"
+            "curriculum_intelligence": "curriculum_intelligence",
+            "curriculum_evaluation": "curriculum_evaluation"
         }
     )
     
-    workflow.add_edge("readiness_score", "gap_analyzer")
-    workflow.add_edge("gap_analyzer", END)
+    workflow.add_edge("curriculum_evaluation", END)
     
     return workflow.compile()
+

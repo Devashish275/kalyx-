@@ -192,15 +192,10 @@ interface AgentStatus {
 }
 
 const initialPipeline: AgentStatus[] = [
-  { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "pending" },
-  { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "pending" },
-  { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "pending" },
-  { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "pending" },
-  { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "pending" },
-  { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "pending" },
-  { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "pending" },
-  { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "pending" },
-  { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "pending" }
+  { name: "Curriculum Intelligence Agent", purpose: "Parses raw syllabus, extracts outcomes, maps Bloom levels, and sequences weekly plans.", status: "pending" },
+  { name: "Content Generation Agent", purpose: "Constructs complete slide structures and comprehensive instructor lecture scripts.", status: "pending" },
+  { name: "Assessment Intelligence Agent", purpose: "Designs diagnostic MCQ test items and audits final Bloom cognitive balance.", status: "pending" },
+  { name: "Curriculum Evaluation Agent", purpose: "Computes 100-point course quality readiness rating and maps tech market gaps.", status: "pending" }
 ];
 
 export default function KalyxApp() {
@@ -242,15 +237,10 @@ export default function KalyxApp() {
 
   const startPipelineSimulation = () => {
     const initial: AgentStatus[] = [
-      { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "running" },
-      { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "pending" },
-      { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "pending" },
-      { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "pending" },
-      { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "pending" },
-      { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "pending" },
-      { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "pending" },
-      { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "pending" },
-      { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "pending" }
+      { name: "Curriculum Intelligence Agent", purpose: "Parses raw syllabus, extracts outcomes, maps Bloom levels, and sequences weekly plans.", status: "running" },
+      { name: "Content Generation Agent", purpose: "Constructs complete slide structures and comprehensive instructor lecture scripts.", status: "pending" },
+      { name: "Assessment Intelligence Agent", purpose: "Designs diagnostic MCQ test items and audits final Bloom cognitive balance.", status: "pending" },
+      { name: "Curriculum Evaluation Agent", purpose: "Computes 100-point course quality readiness rating and maps tech market gaps.", status: "pending" }
     ];
     setPipelineAgents(initial);
  
@@ -262,7 +252,7 @@ export default function KalyxApp() {
           next[activeIdx] = { 
             ...next[activeIdx], 
             status: "completed", 
-            timestamp: `Step ${activeIdx + 1} of 9` 
+            timestamp: `Step ${activeIdx + 1} of 4` 
           };
         }
         activeIdx++;
@@ -296,7 +286,7 @@ export default function KalyxApp() {
         return {
           ...agent,
           status: "completed",
-          timestamp: `Step ${idx + 1} of 9`
+          timestamp: `Step ${idx + 1} of 4`
         };
       });
     });
@@ -473,15 +463,10 @@ export default function KalyxApp() {
         // Hydrate pipeline agents with actual telemetry or fallback to Option B step indicators
         const telemetry = data.curriculum_analysis?.pipeline_telemetry;
         const staticPipeline: AgentStatus[] = [
-          { name: "Curriculum Analysis Agent", purpose: "Parses raw syllabus text, identifies core knowledge modules, and checks prerequisites.", status: "completed" },
-          { name: "Learning Outcome Extraction Agent", purpose: "Defines measurable course outcomes and maps cognitive target levels.", status: "completed" },
-          { name: "Curriculum Planning Agent", purpose: "Establishes lesson sequencing roadmaps and logical topical pathways.", status: "completed" },
-          { name: "Slide Generation Agent", purpose: "Structures educational slide pages, titles, bullets, and visual description templates.", status: "completed" },
-          { name: "Instructor Notes Agent", purpose: "Generates verbal talking scripts, real-world examples, and teaching tips per slide.", status: "completed" },
-          { name: "Assessment Generation Agent", purpose: "Compiles aligned diagnostic test questions (MCQs, Viva, short answers).", status: "completed" },
-          { name: "Bloom Coverage Agent", purpose: "Audits taxonomic balance across the cognitive spectrum (Remembering to Creating).", status: "completed" },
-          { name: "Readiness Score Agent", purpose: "Runs 100-point multi-vector pedagogical completeness and quality evaluation.", status: "completed" },
-          { name: "Curriculum Gap Analyzer Agent", purpose: "Validates current curriculum nodes against modern 2026 industry tech standards.", status: "completed" }
+          { name: "Curriculum Intelligence Agent", purpose: "Parses raw syllabus, extracts outcomes, maps Bloom levels, and sequences weekly plans.", status: "completed" },
+          { name: "Content Generation Agent", purpose: "Constructs complete slide structures and comprehensive instructor lecture scripts.", status: "completed" },
+          { name: "Assessment Intelligence Agent", purpose: "Designs diagnostic MCQ test items and audits final Bloom cognitive balance.", status: "completed" },
+          { name: "Curriculum Evaluation Agent", purpose: "Computes 100-point course quality readiness rating and maps tech market gaps.", status: "completed" }
         ].map((agent, idx): AgentStatus => {
           const tItem = telemetry?.find((t: any) => t.agent === agent.name);
           if (tItem) {
@@ -497,7 +482,7 @@ export default function KalyxApp() {
             name: agent.name,
             purpose: agent.purpose,
             status: "completed",
-            timestamp: `Step ${idx + 1} of 9`
+            timestamp: `Step ${idx + 1} of 4`
           };
         });
         setPipelineAgents(staticPipeline);
@@ -623,15 +608,10 @@ export default function KalyxApp() {
     // Dynamic terminal updates to simulate real multi-agent work
     const logInterval = setInterval(() => {
       const agents = [
-        "Curriculum Analysis Agent: Scanning text inputs for teaching nodes...",
-        "Learning Outcome Extraction Agent: Defining outcomes against Bloom's layers...",
-        "Curriculum Planning Agent: Establishing lesson roadmap & logical ordering...",
-        "Slide Generation Agent: Drafting typography layers and visual schemas...",
-        "Instructor Notes Agent: Formulating verbal examples and speaker pointers...",
-        "Assessment Generation Agent: Mapping MCQs, Viva, and essays to cognitive levels...",
-        "Bloom Coverage Agent: Auditing taxonomic coverage across all six levels...",
-        "Readiness Score Agent: Running 100-point curriculum algorithm...",
-        "Curriculum Gap Analyzer Agent: Validating modern 2026 industry standards..."
+        "Curriculum Intelligence Agent: Scrutinizing syllabus text for educational modules...",
+        "Content Generation Agent: Drafting customized slides and instructor talking points...",
+        "Assessment Intelligence Agent: Structuring diagnostic test items and cognitive metrics...",
+        "Curriculum Evaluation Agent: Auditing industry gaps and compliance scores..."
       ];
       const randomMsg = agents[Math.floor(Math.random() * agents.length)];
       setUploadLogs(prev => [...prev, randomMsg]);
@@ -651,6 +631,20 @@ export default function KalyxApp() {
 
       if (res.ok) {
         const data = await res.json();
+        if (data.status === "partial_generation") {
+          setUploadLogs(prev => [
+            ...prev, 
+            `WARNING: Pipeline interrupted due to API ${data.error_type} at ${data.failed_agent}.`,
+            `Successfully completed stages: ${data.successful_agents.join(", ") || "None"}.`,
+            "Partial classroom package saved. Please retry later to complete the remaining sections."
+          ]);
+          failPipelineSimulation();
+          setIsUploading(false);
+          setUploadFile(null);
+          selectCourse(activeCourseId);
+          alert(`Partial Generation Warning:\n\nThe pipeline was interrupted due to Gemini API Rate Limit / Resource Exhaustion (${data.error_type}) at ${data.failed_agent}.\n\nSuccessful sections: ${data.successful_agents.join(", ") || "None"}.\n\nSuccessfully generated items have been saved. You can try regenerating later to complete the rest!`);
+          return;
+        }
         setUploadLogs(prev => [...prev, ...data.logs, "SUCCESS: Complete classroom package compiled!"]);
         completePipelineSimulation(data.pipeline_telemetry);
         // Hydrate workspace
@@ -778,15 +772,10 @@ export default function KalyxApp() {
 
       const regenerateInterval = setInterval(() => {
         const agentLogs = [
-          "Curriculum Analysis Agent: Scanning text inputs for teaching nodes...",
-          "Learning Outcome Extraction Agent: Defining outcomes against Bloom's layers...",
-          "Curriculum Planning Agent: Establishing lesson roadmap & logical ordering...",
-          "Slide Generation Agent: Re-drafting slide layout with style preferences...",
-          "Instructor Notes Agent: Formulating customized speaker pointers and tone...",
-          "Assessment Generation Agent: Mapping MCQs to learning outcomes...",
-          "Bloom Coverage Agent: Auditing taxonomic coverage across all six levels...",
-          "Readiness Score Agent: Running 100-point curriculum algorithm...",
-          "Curriculum Gap Analyzer Agent: Validating modern 2026 industry standards..."
+          "Curriculum Intelligence Agent: Scrutinizing syllabus text for educational modules...",
+          "Content Generation Agent: Drafting customized slides and instructor talking points...",
+          "Assessment Intelligence Agent: Structuring diagnostic test items and cognitive metrics...",
+          "Curriculum Evaluation Agent: Auditing industry gaps and compliance scores..."
         ];
         const randomMsg = agentLogs[Math.floor(Math.random() * agentLogs.length)];
         setUploadLogs(prev => [...prev, randomMsg]);
@@ -804,6 +793,19 @@ export default function KalyxApp() {
 
       if (res.ok) {
         const data = await res.json();
+        if (data.status === "partial_generation") {
+          setUploadLogs(prev => [
+            ...prev, 
+            `WARNING: Pipeline interrupted due to API ${data.error_type} at ${data.failed_agent}.`,
+            `Successfully completed stages: ${data.successful_agents.join(", ") || "None"}.`,
+            "Partial classroom package saved. Please retry later to complete the remaining sections."
+          ]);
+          failPipelineSimulation();
+          setIsUploading(false);
+          selectCourse(activeCourseId);
+          alert(`Partial Generation Warning:\n\nThe pipeline was interrupted due to Gemini API Rate Limit / Resource Exhaustion (${data.error_type}) at ${data.failed_agent}.\n\nSuccessful sections: ${data.successful_agents.join(", ") || "None"}.\n\nSuccessfully generated items have been saved. You can try regenerating later to complete the rest!`);
+          return;
+        }
         setUploadLogs(prev => [...prev, ...data.logs, "SUCCESS: Complete classroom package regenerated!"]);
         completePipelineSimulation(data.pipeline_telemetry);
         setTimeout(() => {
@@ -1073,7 +1075,7 @@ export default function KalyxApp() {
                   <div className="flex justify-between items-center text-xs border-t border-slate-900 pt-4">
                     <div className="flex items-center gap-2 text-slate-400">
                       <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                      <span>9-Agent Validation Loop</span>
+                      <span>4-Agent Validation Loop</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-sky-400 font-semibold">
                       <span>Interactive Studio ready</span>
@@ -1335,7 +1337,7 @@ export default function KalyxApp() {
                       <div>
                         <h3 className="text-lg font-bold text-white">Upload Your Syllabus</h3>
                         <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                          To get started, select an existing course or create a new one, then upload your course syllabus PDF/TXT to activate the 9-agent analysis.
+                          To get started, select an existing course or create a new one, then upload your course syllabus PDF/TXT to activate the 4-agent analysis.
                         </p>
                       </div>
                       
@@ -1451,7 +1453,7 @@ export default function KalyxApp() {
                                 }`}
                               >
                                 <Play className="h-3.5 w-3.5" />
-                                <span>Trigger 9-Agent Analysis</span>
+                                <span>Trigger 4-Agent Analysis</span>
                               </button>
                             </form>
                           </div>
@@ -1644,7 +1646,7 @@ export default function KalyxApp() {
                     {/* Pipeline Summary Box */}
                     {totalDuration > 0 && (
                       <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 text-left flex flex-col gap-1.5 shadow-lg shadow-emerald-500/2">
-                        <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">9-Agent Workflow Completed</div>
+                        <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">4-Agent Workflow Completed</div>
                         <div className="text-lg font-black text-white">Total Execution Time: {totalDuration.toFixed(2)} seconds</div>
                       </div>
                     )}

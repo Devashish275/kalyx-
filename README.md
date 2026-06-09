@@ -1,6 +1,6 @@
 # ✨ KALYX: Curriculum Intelligence Platform
 
-KALYX is an , enterprise-grade multi-agent curriculum intelligence platform designed for modern educators, academic directors, and training organizations. By orchestrating a pipeline of **9 specialized LangGraph agents** powered by **Google Gemini 2.5 Flash**, KALYX transforms a raw syllabus document (PDF/TXT) into a comprehensive, production-ready classroom package in minutes.
+KALYX is an , enterprise-grade multi-agent curriculum intelligence platform designed for modern educators, academic directors, and training organizations. By orchestrating a pipeline of **4 consolidated LangGraph agents** powered by **Google Gemini**, KALYX transforms a raw syllabus document (PDF/TXT) into a comprehensive, production-ready classroom package in minutes.
 
 The platform automatically builds structured lesson outlines, slide content, instructor lecture scripts, question banks, cognitive audits, and modern industry gap analysis, exporting everything directly to premium PPTX slide decks, PDFs, Kahoot packages, and interactive quizzes.
 
@@ -30,20 +30,15 @@ The platform automatically builds structured lesson outlines, slide content, ins
 
 ## 🚀 Key Features
 
-### 1. Intelligent Multi-Agent Workflow (9-Agent Loop)
-KALYX features a structured multi-agent state graph pipeline powered by **LangGraph** and **Gemini 2.5 Flash**:
-1. **Curriculum Analysis Agent**: Deconstructs raw syllabi into structured modules and topics.
-2. **Learning Outcome Extraction Agent**: Formulates clear learning outcomes (LOs) mapping to academic standards.
-3. **Curriculum Planning Agent**: Establishes weekly lesson maps matching target outcomes.
-4. **Slide Generation Agent**: Drafts text outlines, titles, and visual layouts for slide decks.
-5. **Instructor Notes Agent**: Generates speaker notes, teaching tips, and clarify examples.
-6. **Assessment Generation Agent**: Formulates MCQ and short-answer diagnostic items.
-7. **Bloom Coverage Agent**: Evaluates cognitive distribution across all 6 revised Bloom tiers.
-8. **Readiness Score Agent**: Performs a comprehensive audit across completeness, alignment, and quality.
-9. **Industry Gap Analysis Agent**: Evaluates curriculum topics against modern technology and industry requirements.
+### 1. Intelligent Multi-Agent Workflow (4-Agent Loop)
+KALYX features a structured multi-agent state graph pipeline powered by **LangGraph** and **Google Gemini**:
+1. **Curriculum Intelligence Agent**: Deconstructs raw syllabi, formulates measurable learning outcomes (LOs), and maps structured weekly lesson plans.
+2. **Content Generation Agent**: Generates complete, detailed lecture slides and comprehensive instructor lecture scripts (including talking points, teaching tips, and real-world examples).
+3. **Assessment Intelligence Agent**: Designs diagnostic MCQ assessment banks and performs a cognitive audit across all six tiers of Bloom's Revised Taxonomy.
+4. **Curriculum Evaluation Agent**: Evaluates curriculum quality on a 100-point readiness scale and compiles active industry tech gap analyses.
 
 ### 2. Self-Healing Cognitive Loop
-If the **Bloom Coverage Agent** evaluates the average cognitive coverage below a **75% threshold**, the LangGraph orchestrator triggers a conditional edge that loops back to the *Learning Outcome Extraction* stage. This enriches the syllabus content and updates outcomes dynamically before finalizing the package.
+If the **Assessment Intelligence Agent** audits the average Bloom cognitive coverage below a **75% threshold**, the LangGraph orchestrator triggers a conditional edge that loops back to the *Curriculum Intelligence* stage. This enriches the syllabus content and updates outcomes dynamically before finalizing the package.
 
 ### 3. Learning Outcome Traceability
 Educators can click on any extracted learning outcome inside the traceability dashboard to view exactly how it is covered across the generated course. The platform maps outcomes directly to:
@@ -93,8 +88,8 @@ graph TD
 
     %% Orchestration Block
     subgraph Orchestration [LangGraph Orchestrator]
-        AG_Graph[9-Agent State Graph]
-        AG_Gemini[Gemini 2.5 Flash]
+        AG_Graph[4-Agent State Graph]
+        AG_Gemini[Gemini Flash]
     end
 
     %% Interconnections

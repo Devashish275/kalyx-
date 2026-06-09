@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -124,6 +124,110 @@ def delete_course(course_id: int, db: Session = Depends(get_db), current_user: U
     db.commit()
     return {"message": f"Course {course_id} deleted successfully"}
 
+def save_workflow_outputs(db: Session, course_id: int, final_state: Dict[str, Any]):
+    # Clean previous generated course details to ensure clean overwrite
+    db.query(CurriculumAnalysis).filter(CurriculumAnalysis.course_id == course_id).delete()
+    db.query(LearningOutcome).filter(LearningOutcome.course_id == course_id).delete()
+    db.query(GeneratedSlide).filter(GeneratedSlide.course_id == course_id).delete()
+    db.query(InstructorNote).filter(InstructorNote.course_id == course_id).delete()
+    db.query(Assessment).filter(Assessment.course_id == course_id).delete()
+    db.query(ReadinessScore).filter(ReadinessScore.course_id == course_id).delete()
+    db.commit()
+
+    # Conditionally save Curriculum Analysis
+    if final_state.get("curriculum_map") and isinstance(final_state["curriculum_map"], dict) and len(final_state["curriculum_map"]) > 0:
+        bloom_rec = None
+        if final_state.get("bloom_report") and isinstance(final_state["bloom_report"], dict) and len(final_state["bloom_report"]) > 0:
+            bloom_rec = final_state["bloom_report"].get("recommendation")
+            
+        ind_gap = None
+        if final_state.get("industry_gap_report") and isinstance(final_state["industry_gap_report"], dict) and len(final_state["industry_gap_report"]) > 0:
+            ind_gap = final_state["industry_gap_report"]
+            
+        analysis = CurriculumAnalysis(
+            course_id=course_id,
+            curriculum_map=final_state["curriculum_map"],
+            gap_analysis=bloom_rec if bloom_rec else "Review learning modules completeness.",
+            industry_gap_report=ind_gap,
+            pipeline_telemetry=final_state.get("pipeline_telemetry", [])
+        )
+        db.add(analysis)
+        db.commit()
+
+    # Conditionally save Learning Outcomes
+    outcome_map = {}
+    if final_state.get("learning_outcomes") and isinstance(final_state["learning_outcomes"], list) and len(final_state["learning_outcomes"]) > 0:
+        for item in final_state["learning_outcomes"]:
+            if isinstance(item, dict) and "text" in item and "bloom_level" in item:
+                outcome = LearningOutcome(
+                    course_id=course_id,
+                    outcome_text=item["text"],
+                    bloom_level=item["bloom_level"]
+                )
+                db.add(outcome)
+                db.commit()
+                outcome_map[item.get("id")] = outcome.id
+
+    # Conditionally save Slides
+    if final_state.get("slide_deck") and isinstance(final_state["slide_deck"], list) and len(final_state["slide_deck"]) > 0:
+        for slide_item in final_state["slide_deck"]:
+            if isinstance(slide_item, dict) and "slide_index" in slide_item and "title" in slide_item and "content" in slide_item:
+                slide = GeneratedSlide(
+                    course_id=course_id,
+                    slide_index=slide_item["slide_index"],
+                    title=slide_item["title"],
+                    content=slide_item["content"],
+                    suggested_visuals=slide_item.get("suggested_visuals", "")
+                )
+                db.add(slide)
+
+    # Conditionally save Speaker Notes
+    if final_state.get("instructor_notes") and isinstance(final_state["instructor_notes"], list) and len(final_state["instructor_notes"]) > 0:
+        for note_item in final_state["instructor_notes"]:
+            if isinstance(note_item, dict) and "slide_index" in note_item and "talking_points" in note_item:
+                note = InstructorNote(
+                    course_id=course_id,
+                    slide_index=note_item["slide_index"],
+                    talking_points=note_item["talking_points"],
+                    teaching_tips=note_item.get("teaching_tips", ""),
+                    examples=note_item.get("examples", [])
+                )
+                db.add(note)
+
+    # Conditionally save Assessments
+    if final_state.get("assessment_bank") and isinstance(final_state["assessment_bank"], list) and len(final_state["assessment_bank"]) > 0:
+        for q_item in final_state["assessment_bank"]:
+            if isinstance(q_item, dict) and "question_text" in q_item and "question_type" in q_item:
+                mapped_outcome_id = outcome_map.get(q_item.get("learning_outcome_id")) if outcome_map else None
+                assessment = Assessment(
+                    course_id=course_id,
+                    learning_outcome_id=mapped_outcome_id,
+                    question_text=q_item["question_text"],
+                    question_type=q_item["question_type"],
+                    options=q_item.get("options"),
+                    correct_answer=q_item.get("correct_answer"),
+                    bloom_level=q_item.get("bloom_level", "Remembering")
+                )
+                db.add(assessment)
+
+    # Conditionally save Readiness Score
+    if final_state.get("readiness_score") and isinstance(final_state["readiness_score"], dict) and len(final_state["readiness_score"]) > 0:
+        scr = final_state["readiness_score"]
+        score = ReadinessScore(
+            course_id=course_id,
+            score=scr.get("score", 70.0),
+            completeness=scr.get("completeness", 70.0),
+            outcome_coverage=scr.get("outcome_coverage", 70.0),
+            assessment_quality=scr.get("assessment_quality", 70.0),
+            bloom_coverage=scr.get("bloom_coverage", 70.0),
+            industry_relevance=scr.get("industry_relevance", 70.0),
+            breakdown=scr.get("breakdown", {})
+        )
+        db.add(score)
+
+    db.commit()
+
+
 @router.post("/{course_id}/analyze", dependencies=[Depends(limit_syllabus_upload)])
 def analyze_syllabus(
     course_id: int,
@@ -228,100 +332,27 @@ def analyze_syllabus(
         "industry_gap_report": {},
         "personalization_profile": personalization_profile,
         "logs": ["Starting multi-agent syllabus analysis pipeline..."],
-        "current_agent": "Curriculum Analysis Agent",
+        "current_agent": "Curriculum Intelligence Agent",
         "pipeline_telemetry": []
     }
     
     # Invoke State Graph
     final_state = compiled_graph.invoke(initial_state)
     
-    # Clean previous generated course details to ensure clean overwrite
-    db.query(CurriculumAnalysis).filter(CurriculumAnalysis.course_id == course_id).delete()
-    db.query(LearningOutcome).filter(LearningOutcome.course_id == course_id).delete()
-    db.query(GeneratedSlide).filter(GeneratedSlide.course_id == course_id).delete()
-    db.query(InstructorNote).filter(InstructorNote.course_id == course_id).delete()
-    db.query(Assessment).filter(Assessment.course_id == course_id).delete()
-    db.query(ReadinessScore).filter(ReadinessScore.course_id == course_id).delete()
-    db.commit()
+    error_info = final_state.get("error_info")
+    save_workflow_outputs(db, course_id, final_state)
     
-    # 3. SAVE WORKFLOW OUTPUTS TO DATABASE TABLES
-    
-    # A. Curriculum Analysis
-    analysis = CurriculumAnalysis(
-        course_id=course_id,
-        curriculum_map=final_state["curriculum_map"],
-        gap_analysis=final_state["bloom_report"].get("recommendation", "Review learning modules completeness."),
-        industry_gap_report=final_state["industry_gap_report"],
-        pipeline_telemetry=final_state.get("pipeline_telemetry", [])
-    )
-    db.add(analysis)
-    
-    # B. Learning Outcomes
-    outcome_map = {} # Maps mock ID or indexes to actual DB items for assessment relational binding
-    for item in final_state["learning_outcomes"]:
-        outcome = LearningOutcome(
-            course_id=course_id,
-            outcome_text=item["text"],
-            bloom_level=item["bloom_level"]
-        )
-        db.add(outcome)
-        db.commit()
-        outcome_map[item.get("id")] = outcome.id
+    if error_info:
+        return {
+            "status": "partial_generation",
+            "failed_agent": error_info.get("failed_agent"),
+            "error_type": error_info.get("error_type"),
+            "successful_agents": error_info.get("successful_agents", []),
+            "retry_recommended": error_info.get("retry_recommended", True),
+            "logs": final_state["logs"],
+            "pipeline_telemetry": final_state.get("pipeline_telemetry", [])
+        }
         
-    # C. Slides
-    for slide_item in final_state["slide_deck"]:
-        slide = GeneratedSlide(
-            course_id=course_id,
-            slide_index=slide_item["slide_index"],
-            title=slide_item["title"],
-            content=slide_item["content"],
-            suggested_visuals=slide_item.get("suggested_visuals", "")
-        )
-        db.add(slide)
-        
-    # D. Speaker Notes
-    for note_item in final_state["instructor_notes"]:
-        note = InstructorNote(
-            course_id=course_id,
-            slide_index=note_item["slide_index"],
-            talking_points=note_item["talking_points"],
-            teaching_tips=note_item.get("teaching_tips", ""),
-            examples=note_item.get("examples", [])
-        )
-        db.add(note)
-        
-    # E. Assessments
-    for q_item in final_state["assessment_bank"]:
-        # Map back to newly created outcome ID in SQLite/Postgres
-        mapped_outcome_id = outcome_map.get(q_item.get("learning_outcome_id"))
-        
-        assessment = Assessment(
-            course_id=course_id,
-            learning_outcome_id=mapped_outcome_id,
-            question_text=q_item["question_text"],
-            question_type=q_item["question_type"],
-            options=q_item.get("options"),
-            correct_answer=q_item.get("correct_answer"),
-            bloom_level=q_item["bloom_level"]
-        )
-        db.add(assessment)
-        
-    # F. Readiness Score
-    scr = final_state["readiness_score"]
-    score = ReadinessScore(
-        course_id=course_id,
-        score=scr.get("score", 70.0),
-        completeness=scr.get("completeness", 70.0),
-        outcome_coverage=scr.get("outcome_coverage", 70.0),
-        assessment_quality=scr.get("assessment_quality", 70.0),
-        bloom_coverage=scr.get("bloom_coverage", 70.0),
-        industry_relevance=scr.get("industry_relevance", 70.0),
-        breakdown=scr.get("breakdown", {})
-    )
-    db.add(score)
-    
-    db.commit()
-    
     return {
         "status": "Success",
         "message": "Syllabus processed and educational package generated successfully.",
@@ -365,87 +396,26 @@ def regenerate_course_deck(
         "industry_gap_report": {},
         "personalization_profile": personalization_profile,
         "logs": ["Initiating personalized multi-agent regeneration workflow..."],
-        "current_agent": "Curriculum Analysis Agent",
+        "current_agent": "Curriculum Intelligence Agent",
         "pipeline_telemetry": []
     }
     
     final_state = compiled_graph.invoke(initial_state)
     
-    db.query(CurriculumAnalysis).filter(CurriculumAnalysis.course_id == course_id).delete()
-    db.query(LearningOutcome).filter(LearningOutcome.course_id == course_id).delete()
-    db.query(GeneratedSlide).filter(GeneratedSlide.course_id == course_id).delete()
-    db.query(InstructorNote).filter(InstructorNote.course_id == course_id).delete()
-    db.query(Assessment).filter(Assessment.course_id == course_id).delete()
-    db.query(ReadinessScore).filter(ReadinessScore.course_id == course_id).delete()
-    db.commit()
+    error_info = final_state.get("error_info")
+    save_workflow_outputs(db, course_id, final_state)
     
-    analysis = CurriculumAnalysis(
-        course_id=course_id,
-        curriculum_map=final_state["curriculum_map"],
-        gap_analysis=final_state["bloom_report"].get("recommendation", "Review learning modules completeness."),
-        industry_gap_report=final_state["industry_gap_report"],
-        pipeline_telemetry=final_state.get("pipeline_telemetry", [])
-    )
-    db.add(analysis)
-    
-    outcome_map = {}
-    for item in final_state["learning_outcomes"]:
-        outcome = LearningOutcome(
-            course_id=course_id,
-            outcome_text=item["text"],
-            bloom_level=item["bloom_level"]
-        )
-        db.add(outcome)
-        db.commit()
-        outcome_map[item.get("id")] = outcome.id
+    if error_info:
+        return {
+            "status": "partial_generation",
+            "failed_agent": error_info.get("failed_agent"),
+            "error_type": error_info.get("error_type"),
+            "successful_agents": error_info.get("successful_agents", []),
+            "retry_recommended": error_info.get("retry_recommended", True),
+            "logs": final_state["logs"],
+            "pipeline_telemetry": final_state.get("pipeline_telemetry", [])
+        }
         
-    for slide_item in final_state["slide_deck"]:
-        slide = GeneratedSlide(
-            course_id=course_id,
-            slide_index=slide_item["slide_index"],
-            title=slide_item["title"],
-            content=slide_item["content"],
-            suggested_visuals=slide_item.get("suggested_visuals", "")
-        )
-        db.add(slide)
-        
-    for note_item in final_state["instructor_notes"]:
-        note = InstructorNote(
-            course_id=course_id,
-            slide_index=note_item["slide_index"],
-            talking_points=note_item["talking_points"],
-            teaching_tips=note_item.get("teaching_tips", ""),
-            examples=note_item.get("examples", [])
-        )
-        db.add(note)
-        
-    for q_item in final_state["assessment_bank"]:
-        mapped_outcome_id = outcome_map.get(q_item.get("learning_outcome_id"))
-        assessment = Assessment(
-            course_id=course_id,
-            learning_outcome_id=mapped_outcome_id,
-            question_text=q_item["question_text"],
-            question_type=q_item["question_type"],
-            options=q_item.get("options"),
-            correct_answer=q_item.get("correct_answer"),
-            bloom_level=q_item["bloom_level"]
-        )
-        db.add(assessment)
-        
-    scr = final_state["readiness_score"]
-    score = ReadinessScore(
-        course_id=course_id,
-        score=scr.get("score", 70.0),
-        completeness=scr.get("completeness", 70.0),
-        outcome_coverage=scr.get("outcome_coverage", 70.0),
-        assessment_quality=scr.get("assessment_quality", 70.0),
-        bloom_coverage=scr.get("bloom_coverage", 70.0),
-        industry_relevance=scr.get("industry_relevance", 70.0),
-        breakdown=scr.get("breakdown", {})
-    )
-    db.add(score)
-    db.commit()
-    
     return {
         "status": "Success",
         "message": "Syllabus processed and educational package generated successfully.",
