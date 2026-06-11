@@ -877,26 +877,26 @@ export default function KalyxApp() {
           <form onSubmit={handleAuthSubmit} className="flex flex-col gap-4">
             {authMode === "signup" && (
               <>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-slate-400 tracking-wider">FULL NAME</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Dr. Devashish Jones" 
-                    value={authFullName}
-                    onChange={(e) => setAuthFullName(e.target.value)}
-                    className="px-4 py-3 bg-slate-950/70 border border-slate-900 focus:border-sky-500/50 rounded-xl text-xs text-white placeholder-slate-600 outline-none transition-all"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-extrabold text-slate-400 tracking-wider">EMAIL ADDRESS</label>
-                  <input 
-                    type="email" 
-                    placeholder="e.g. devashish.jones@university.edu" 
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    className="px-4 py-3 bg-slate-950/70 border border-slate-900 focus:border-sky-500/50 rounded-xl text-xs text-white placeholder-slate-600 outline-none transition-all"
-                  />
-                </div>
+                 <div className="flex flex-col gap-1.5">
+                   <label className="text-[10px] font-extrabold text-slate-400 tracking-wider">FULL NAME</label>
+                   <input 
+                     type="text" 
+                     placeholder="e.g. Dr. John Doe" 
+                     value={authFullName}
+                     onChange={(e) => setAuthFullName(e.target.value)}
+                     className="px-4 py-3 bg-slate-950/70 border border-slate-900 focus:border-sky-500/50 rounded-xl text-xs text-white placeholder-slate-600 outline-none transition-all"
+                   />
+                 </div>
+                 <div className="flex flex-col gap-1.5">
+                   <label className="text-[10px] font-extrabold text-slate-400 tracking-wider">EMAIL ADDRESS</label>
+                   <input 
+                     type="email" 
+                     placeholder="e.g. john.doe@university.edu" 
+                     value={authEmail}
+                     onChange={(e) => setAuthEmail(e.target.value)}
+                     className="px-4 py-3 bg-slate-950/70 border border-slate-900 focus:border-sky-500/50 rounded-xl text-xs text-white placeholder-slate-600 outline-none transition-all"
+                   />
+                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-extrabold text-slate-400 tracking-wider">USERNAME</label>
                   <input 
@@ -1064,7 +1064,7 @@ export default function KalyxApp() {
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-white leading-none">Advanced Machine Learning</h4>
-                        <span className="text-[10px] text-slate-500">Dr. Devashish Jones</span>
+                        <span className="text-[10px] text-slate-500">Dr. John Doe</span>
                       </div>
                     </div>
                     <div className="px-2.5 py-1 rounded bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-extrabold">
