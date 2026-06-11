@@ -1,5 +1,6 @@
 import os
 import datetime
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -10,6 +11,9 @@ import bcrypt
 from pydantic import BaseModel, EmailStr
 from app.database import get_db
 from app.models import User
+
+# Configure Logger
+logger = logging.getLogger("kalyx.auth")
 
 # Load config
 JWT_SECRET = os.getenv("JWT_SECRET", "hackathon_super_secret_key_kalyx_2026")
@@ -38,14 +42,39 @@ class TokenResponse(BaseModel):
 
 # Password hashing utilities
 def hash_password(password: str) -> str:
-    pwd_bytes = password.encode('utf-8')
+    if isinstance(password, str):
+        pwd_bytes = password.encode('utf-8')
+    elif isinstance(password, bytes):
+        pwd_bytes = password
+    else:
+        pwd_bytes = str(password).encode('utf-8')
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
+    hashed = bcrypt.hashpw(pwd_bytes, salt)
+    if isinstance(hashed, bytes):
+        return hashed.decode('utf-8')
+    return hashed
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-    except Exception:
+        # Convert plain password to bytes safely
+        if isinstance(plain_password, str):
+            plain_bytes = plain_password.encode('utf-8')
+        elif isinstance(plain_password, bytes):
+            plain_bytes = plain_password
+        else:
+            plain_bytes = str(plain_password).encode('utf-8')
+
+        # Convert hashed password to bytes safely
+        if isinstance(hashed_password, str):
+            hashed_bytes = hashed_password.encode('utf-8')
+        elif isinstance(hashed_password, bytes):
+            hashed_bytes = hashed_password
+        else:
+            hashed_bytes = str(hashed_password).encode('utf-8')
+
+        return bcrypt.checkpw(plain_bytes, hashed_bytes)
+    except Exception as e:
+        logger.error(f"Error in verify_password: {e}", exc_info=True)
         return False
 
 # Token utility
