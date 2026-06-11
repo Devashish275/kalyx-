@@ -4,7 +4,6 @@ import math
 from typing import List, Dict, Any
 from pypdf import PdfReader
 from sqlalchemy.orm import Session
-from google import genai
 from app.models import UploadedDocument, Embedding
 
 # Helper to get embeddings from Google Gemini
@@ -24,6 +23,7 @@ def get_embedding(text: str) -> List[float]:
         return [x/norm for x in mock_vector] if norm > 0 else [0.0]*768
         
     try:
+        from google import genai
         client = genai.Client(api_key=api_key)
         response = client.models.embed_content(
             model="models/gemini-embedding-2",

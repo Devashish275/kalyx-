@@ -192,10 +192,15 @@ interface AgentStatus {
 }
 
 const initialPipeline: AgentStatus[] = [
-  { name: "Curriculum Intelligence Agent", purpose: "Parses raw syllabus, extracts outcomes, maps Bloom levels, and sequences weekly plans.", status: "pending" },
-  { name: "Content Generation Agent", purpose: "Constructs complete slide structures and comprehensive instructor lecture scripts.", status: "pending" },
-  { name: "Assessment Intelligence Agent", purpose: "Designs diagnostic MCQ test items and audits final Bloom cognitive balance.", status: "pending" },
-  { name: "Curriculum Evaluation Agent", purpose: "Computes 100-point course quality readiness rating and maps tech market gaps.", status: "pending" }
+  { name: "Curriculum Analysis Agent", purpose: "Extracts modules, topics, and structures from raw syllabus text.", status: "pending" },
+  { name: "Learning Outcome Agent", purpose: "Generates measurable learning outcomes mapped to Bloom's Taxonomy.", status: "pending" },
+  { name: "Curriculum Planning Agent", purpose: "Coordinates weekly sequencing, lesson scheduling, and academic pacing.", status: "pending" },
+  { name: "Slide Generation Agent", purpose: "Generates slide titles, layout outlines, and content bullet points.", status: "pending" },
+  { name: "Instructor Notes Agent", purpose: "Develops comprehensive lecturer talking points and real-world examples.", status: "pending" },
+  { name: "Assessment Agent", purpose: "Creates diagnostic assessment questions mapped to learning outcomes.", status: "pending" },
+  { name: "Bloom Audit Agent", purpose: "Analyzes cognitive balance and produces a Bloom level distribution report.", status: "pending" },
+  { name: "Industry Gap Agent", purpose: "Benchmarks curriculum mapping against modern technology requirements.", status: "pending" },
+  { name: "Readiness Score Agent", purpose: "Computes overall 100-point accreditation readiness scoring.", status: "pending" }
 ];
 
 export default function KalyxApp() {
@@ -237,10 +242,15 @@ export default function KalyxApp() {
 
   const startPipelineSimulation = () => {
     const initial: AgentStatus[] = [
-      { name: "Curriculum Intelligence Agent", purpose: "Parses raw syllabus, extracts outcomes, maps Bloom levels, and sequences weekly plans.", status: "running" },
-      { name: "Content Generation Agent", purpose: "Constructs complete slide structures and comprehensive instructor lecture scripts.", status: "pending" },
-      { name: "Assessment Intelligence Agent", purpose: "Designs diagnostic MCQ test items and audits final Bloom cognitive balance.", status: "pending" },
-      { name: "Curriculum Evaluation Agent", purpose: "Computes 100-point course quality readiness rating and maps tech market gaps.", status: "pending" }
+      { name: "Curriculum Analysis Agent", purpose: "Extracts modules, topics, and structures from raw syllabus text.", status: "running" },
+      { name: "Learning Outcome Agent", purpose: "Generates measurable learning outcomes mapped to Bloom's Taxonomy.", status: "pending" },
+      { name: "Curriculum Planning Agent", purpose: "Coordinates weekly sequencing, lesson scheduling, and academic pacing.", status: "pending" },
+      { name: "Slide Generation Agent", purpose: "Generates slide titles, layout outlines, and content bullet points.", status: "pending" },
+      { name: "Instructor Notes Agent", purpose: "Develops comprehensive lecturer talking points and real-world examples.", status: "pending" },
+      { name: "Assessment Agent", purpose: "Creates diagnostic assessment questions mapped to learning outcomes.", status: "pending" },
+      { name: "Bloom Audit Agent", purpose: "Analyzes cognitive balance and produces a Bloom level distribution report.", status: "pending" },
+      { name: "Industry Gap Agent", purpose: "Benchmarks curriculum mapping against modern technology requirements.", status: "pending" },
+      { name: "Readiness Score Agent", purpose: "Computes overall 100-point accreditation readiness scoring.", status: "pending" }
     ];
     setPipelineAgents(initial);
  
@@ -252,7 +262,7 @@ export default function KalyxApp() {
           next[activeIdx] = { 
             ...next[activeIdx], 
             status: "completed", 
-            timestamp: `Step ${activeIdx + 1} of 4` 
+            timestamp: `Step ${activeIdx + 1} of 9` 
           };
         }
         activeIdx++;
@@ -266,7 +276,7 @@ export default function KalyxApp() {
         }
         return next;
       });
-    }, 2800);
+    }, 1500);
  
     return interval;
   };
@@ -276,17 +286,19 @@ export default function KalyxApp() {
       return prev.map((agent, idx) => {
         const tItem = telemetry?.find(t => t.agent === agent.name);
         if (tItem) {
+          const durationSec = typeof tItem.duration_ms === 'number' ? tItem.duration_ms / 1000 : tItem.duration_seconds;
+          const formattedDuration = typeof durationSec === 'number' ? `${durationSec.toFixed(1)}s` : '0.0s';
           return {
             ...agent,
             status: "completed",
-            timestamp: `Completed • ${tItem.duration_seconds.toFixed(1)}s`,
-            duration: tItem.duration_seconds
+            timestamp: `Completed • ${formattedDuration}`,
+            duration: durationSec
           };
         }
         return {
           ...agent,
           status: "completed",
-          timestamp: `Step ${idx + 1} of 4`
+          timestamp: `Step ${idx + 1} of 9`
         };
       });
     });
@@ -463,26 +475,33 @@ export default function KalyxApp() {
         // Hydrate pipeline agents with actual telemetry or fallback to Option B step indicators
         const telemetry = data.curriculum_analysis?.pipeline_telemetry;
         const staticPipeline: AgentStatus[] = [
-          { name: "Curriculum Intelligence Agent", purpose: "Parses raw syllabus, extracts outcomes, maps Bloom levels, and sequences weekly plans.", status: "completed" },
-          { name: "Content Generation Agent", purpose: "Constructs complete slide structures and comprehensive instructor lecture scripts.", status: "completed" },
-          { name: "Assessment Intelligence Agent", purpose: "Designs diagnostic MCQ test items and audits final Bloom cognitive balance.", status: "completed" },
-          { name: "Curriculum Evaluation Agent", purpose: "Computes 100-point course quality readiness rating and maps tech market gaps.", status: "completed" }
+          { name: "Curriculum Analysis Agent", purpose: "Extracts modules, topics, and structures from raw syllabus text.", status: "completed" },
+          { name: "Learning Outcome Agent", purpose: "Generates measurable learning outcomes mapped to Bloom's Taxonomy.", status: "completed" },
+          { name: "Curriculum Planning Agent", purpose: "Coordinates weekly sequencing, lesson scheduling, and academic pacing.", status: "completed" },
+          { name: "Slide Generation Agent", purpose: "Generates slide titles, layout outlines, and content bullet points.", status: "completed" },
+          { name: "Instructor Notes Agent", purpose: "Develops comprehensive lecturer talking points and real-world examples.", status: "completed" },
+          { name: "Assessment Agent", purpose: "Creates diagnostic assessment questions mapped to learning outcomes.", status: "completed" },
+          { name: "Bloom Audit Agent", purpose: "Analyzes cognitive balance and produces a Bloom level distribution report.", status: "completed" },
+          { name: "Industry Gap Agent", purpose: "Benchmarks curriculum mapping against modern technology requirements.", status: "completed" },
+          { name: "Readiness Score Agent", purpose: "Computes overall 100-point accreditation readiness scoring.", status: "completed" }
         ].map((agent, idx): AgentStatus => {
           const tItem = telemetry?.find((t: any) => t.agent === agent.name);
           if (tItem) {
+            const durationSec = typeof tItem.duration_ms === 'number' ? tItem.duration_ms / 1000 : tItem.duration_seconds;
+            const formattedDuration = typeof durationSec === 'number' ? `${durationSec.toFixed(1)}s` : '0.0s';
             return {
               name: agent.name,
               purpose: agent.purpose,
               status: "completed",
-              timestamp: `Completed • ${tItem.duration_seconds.toFixed(1)}s`,
-              duration: tItem.duration_seconds
+              timestamp: `Completed • ${formattedDuration}`,
+              duration: durationSec
             };
           }
           return {
             name: agent.name,
             purpose: agent.purpose,
             status: "completed",
-            timestamp: `Step ${idx + 1} of 4`
+            timestamp: `Step ${idx + 1} of 9`
           };
         });
         setPipelineAgents(staticPipeline);

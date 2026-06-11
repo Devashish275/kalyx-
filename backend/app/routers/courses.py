@@ -158,7 +158,7 @@ def save_workflow_outputs(db: Session, course_id: int, final_state: Dict[str, An
     outcome_map = {}
     if final_state.get("learning_outcomes") and isinstance(final_state["learning_outcomes"], list) and len(final_state["learning_outcomes"]) > 0:
         for item in final_state["learning_outcomes"]:
-            if isinstance(item, dict) and "text" in item and "bloom_level" in item:
+            if isinstance(item, dict) and item.get("text") and item.get("bloom_level"):
                 outcome = LearningOutcome(
                     course_id=course_id,
                     outcome_text=item["text"],
@@ -171,7 +171,7 @@ def save_workflow_outputs(db: Session, course_id: int, final_state: Dict[str, An
     # Conditionally save Slides
     if final_state.get("slide_deck") and isinstance(final_state["slide_deck"], list) and len(final_state["slide_deck"]) > 0:
         for slide_item in final_state["slide_deck"]:
-            if isinstance(slide_item, dict) and "slide_index" in slide_item and "title" in slide_item and "content" in slide_item:
+            if isinstance(slide_item, dict) and slide_item.get("slide_index") is not None and slide_item.get("title") and slide_item.get("content"):
                 slide = GeneratedSlide(
                     course_id=course_id,
                     slide_index=slide_item["slide_index"],
@@ -184,7 +184,7 @@ def save_workflow_outputs(db: Session, course_id: int, final_state: Dict[str, An
     # Conditionally save Speaker Notes
     if final_state.get("instructor_notes") and isinstance(final_state["instructor_notes"], list) and len(final_state["instructor_notes"]) > 0:
         for note_item in final_state["instructor_notes"]:
-            if isinstance(note_item, dict) and "slide_index" in note_item and "talking_points" in note_item:
+            if isinstance(note_item, dict) and note_item.get("slide_index") is not None and note_item.get("talking_points"):
                 note = InstructorNote(
                     course_id=course_id,
                     slide_index=note_item["slide_index"],
@@ -197,7 +197,7 @@ def save_workflow_outputs(db: Session, course_id: int, final_state: Dict[str, An
     # Conditionally save Assessments
     if final_state.get("assessment_bank") and isinstance(final_state["assessment_bank"], list) and len(final_state["assessment_bank"]) > 0:
         for q_item in final_state["assessment_bank"]:
-            if isinstance(q_item, dict) and "question_text" in q_item and "question_type" in q_item:
+            if isinstance(q_item, dict) and q_item.get("question_text") and q_item.get("question_type"):
                 mapped_outcome_id = outcome_map.get(q_item.get("learning_outcome_id")) if outcome_map else None
                 assessment = Assessment(
                     course_id=course_id,
@@ -332,7 +332,7 @@ def analyze_syllabus(
         "industry_gap_report": {},
         "personalization_profile": personalization_profile,
         "logs": ["Starting multi-agent syllabus analysis pipeline..."],
-        "current_agent": "Curriculum Intelligence Agent",
+        "current_agent": "Curriculum Analysis Agent",
         "pipeline_telemetry": []
     }
     
@@ -396,7 +396,7 @@ def regenerate_course_deck(
         "industry_gap_report": {},
         "personalization_profile": personalization_profile,
         "logs": ["Initiating personalized multi-agent regeneration workflow..."],
-        "current_agent": "Curriculum Intelligence Agent",
+        "current_agent": "Curriculum Analysis Agent",
         "pipeline_telemetry": []
     }
     
