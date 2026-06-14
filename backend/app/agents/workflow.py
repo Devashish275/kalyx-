@@ -684,10 +684,27 @@ def readiness_score_agent(state: SharedState) -> SharedState:
             "Return JSON matching the schema."
         )
         slide_summary = [{"slide_index": s.get("slide_index"), "title": s.get("title")} for s in state.get("slide_deck", [])]
+        
+        # Summarize assessments to avoid Groq TPM limits
+        assessments_raw = state.get("assessment_bank", [])
+        if isinstance(assessments_raw, dict):
+            assessments_list = assessments_raw.get("assessments", [])
+        else:
+            assessments_list = assessments_raw
+
+        assessment_summary = []
+        if isinstance(assessments_list, list):
+            for a in assessments_list:
+                if isinstance(a, dict):
+                    assessment_summary.append({
+                        "question_text": a.get("question_text", "")[:60] + "...",
+                        "bloom_level": a.get("bloom_level", "")
+                    })
+        
         user_prompt = (
             f"Evaluate course readiness for curriculum: {json.dumps(state['curriculum_map'])}, "
             f"outcomes: {json.dumps(state['learning_outcomes'])}, slides: {json.dumps(slide_summary)}, "
-            f"assessments: {json.dumps(state['assessment_bank'])}, and Bloom audit: {json.dumps(state['bloom_report'])}."
+            f"assessments_summary: {json.dumps(assessment_summary)}, and Bloom audit: {json.dumps(state['bloom_report'])}."
         )
         
         res = call_llm(sys_prompt, user_prompt, response_schema=ReadinessScore)
