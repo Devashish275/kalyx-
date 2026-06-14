@@ -1,8 +1,8 @@
-# ✨ KALYX: Curriculum Intelligence Platform
+# ✨ KALYX: AI-Powered Course Content Generator
 
-KALYX is an , enterprise-grade multi-agent curriculum intelligence platform designed for modern educators, academic directors, and training organizations. By orchestrating a pipeline of **4 consolidated LangGraph agents** powered by **Google Gemini**, KALYX transforms a raw syllabus document (PDF/TXT) into a comprehensive, production-ready classroom package in minutes.
+KALYX is an enterprise-grade multi-agent curriculum intelligence platform designed for modern educators, academic directors, and training organizations. By orchestrating a pipeline of **9 specialized LangGraph agents** powered by **Groq API (Llama models)**, KALYX transforms a raw syllabus document (PDF/TXT) into a comprehensive, production-ready classroom package in minutes.
 
-The platform automatically builds structured lesson outlines, slide content, instructor lecture scripts, question banks, cognitive audits, and modern industry gap analysis, exporting everything directly to premium PPTX slide decks, PDFs, Kahoot packages, and interactive quizzes.
+The platform automatically builds structured lesson outlines, slide content, instructor lecture scripts, question banks, cognitive audits, and modern industry gap analysis, exporting everything directly to premium PPTX slide decks, PDFs, Word documents, and interactive quizzes.
 
 ---
 
@@ -30,15 +30,20 @@ The platform automatically builds structured lesson outlines, slide content, ins
 
 ## 🚀 Key Features
 
-### 1. Intelligent Multi-Agent Workflow (4-Agent Loop)
-KALYX features a structured multi-agent state graph pipeline powered by **LangGraph** and **Google Gemini**:
-1. **Curriculum Intelligence Agent**: Deconstructs raw syllabi, formulates measurable learning outcomes (LOs), and maps structured weekly lesson plans.
-2. **Content Generation Agent**: Generates complete, detailed lecture slides and comprehensive instructor lecture scripts (including talking points, teaching tips, and real-world examples).
-3. **Assessment Intelligence Agent**: Designs diagnostic MCQ assessment banks and performs a cognitive audit across all six tiers of Bloom's Revised Taxonomy.
-4. **Curriculum Evaluation Agent**: Evaluates curriculum quality on a 100-point readiness scale and compiles active industry tech gap analyses.
+### 1. Intelligent Multi-Agent Workflow (9-Agent Loop)
+KALYX features a structured multi-agent state graph pipeline powered by **LangGraph** and **Groq API (Llama models)**:
+1. **Curriculum Analysis Agent**: Extracts metadata, prerequisites, and core learning goals from the raw syllabus document.
+2. **Learning Outcome Agent**: Generates measurable outcome statements mapped directly to Bloom's Taxonomy cognitive levels.
+3. **Curriculum Planning Agent**: Expands course topics into a complete weekly lesson plan (up to 30 weeks of teaching structure).
+4. **Slide Generation Agent**: Generates slide titles, bullet points, code blocks, and visual companion descriptions in batched loops.
+5. **Instructor Notes Agent**: Generates deep, slide-specific lecture scripts, talking points, and classroom examples.
+6. **Assessment Agent**: Generates high-quality multiple choice questions (MCQs) mapped directly to target learning outcomes.
+7. **Bloom Audit Agent**: Audits the alignment between learning outcomes and generated questions.
+8. **Industry Gap Agent**: Compares course content to modern industry trends, identifying missing topics and suggesting integrations.
+9. **Readiness Score Agent**: Synthesizes all audits and files into a unified course readiness score (0-100%) and comments.
 
 ### 2. Self-Healing Cognitive Loop
-If the **Assessment Intelligence Agent** audits the average Bloom cognitive coverage below a **75% threshold**, the LangGraph orchestrator triggers a conditional edge that loops back to the *Curriculum Intelligence* stage. This enriches the syllabus content and updates outcomes dynamically before finalizing the package.
+If the **Bloom Audit Agent** audits the average Bloom cognitive coverage below a **75% threshold**, the LangGraph orchestrator triggers a conditional edge that loops back to the *Curriculum Planning* stage. This enriches the syllabus content and updates outcomes dynamically before finalizing the package.
 
 ### 3. Learning Outcome Traceability
 Educators can click on any extracted learning outcome inside the traceability dashboard to view exactly how it is covered across the generated course. The platform maps outcomes directly to:
@@ -51,7 +56,7 @@ Educators can click on any extracted learning outcome inside the traceability da
 The workspace provides an interactive slide canvas, markdown speaker notes editor, and customizable quiz bank. Instructors can refine text, adjust teaching tips, customize slide layouts, and update visual suggestions on the fly with automatic database synchronization.
 
 ### 5. Premium Slide Exports (PPTX & PDF)
-* **PowerPoint Deck**: Generates startup-grade dark-navy theme presentation slides (`#0a0f1e` dark theme, `#0ea5e9` cyan accents) with programmatically fetched relevant stock photos from LoremFlickr, terminal formatting for code snippets, and bound speaker notes.
+* **PowerPoint Deck**: Generates startup-grade dark-navy theme presentation slides (`#0a0f1e` dark theme, `#0ea5e9` cyan accents) with programmatically fetched relevant stock photos, terminal formatting for code snippets, dynamic font scaling to prevent overflow, and bound speaker notes.
 * **FPDF2 PDF Package**: Generates classroom implementation booklets including custom cover pages, metadata profiles, section dividers, side-by-side illustrated slide panels, and quiz answer keys.
 
 ---
@@ -88,8 +93,8 @@ graph TD
 
     %% Orchestration Block
     subgraph Orchestration [LangGraph Orchestrator]
-        AG_Graph[4-Agent State Graph]
-        AG_Gemini[Gemini Flash]
+        AG_Graph[9-Agent State Graph]
+        AG_Groq[Groq API (Llama)]
     end
 
     %% Interconnections
@@ -106,7 +111,7 @@ graph TD
     BE_RAG --> DB_Embeds
     
     BE_Course -->|Orchestrate| AG_Graph
-    AG_Graph -->|LLM Queries| AG_Gemini
+    AG_Graph -->|LLM Queries| AG_Groq
 ```
 
 ---
@@ -134,8 +139,10 @@ graph TD
 4. Configure environment variables. Create a `.env` file inside the `backend` folder:
    ```env
    DATABASE_URL=sqlite:///./kalyx.db
-   JWT_SECRET_KEY=your-jwt-secret-key-change-this
-   GEMINI_API_KEY=your-gemini-api-key-here
+   JWT_SECRET=supersecret_key_change_me_in_production
+   JWT_ALGORITHM=HS256
+   GROQ_API_KEY=your-groq-api-key-here
+   GROQ_MODEL=llama-3.1-8b-instant
    ```
 
 5. Run the backend development server:
@@ -172,7 +179,7 @@ graph TD
   * `/api/courses/` (20 req/min/user)
   * Syllabus uploads & analyze (5 req/min/user)
 * **Payload Validation**: Strict checks on input files, course titles, description lengths, and PDF formats. Returns clean, structured JSON 422/429 validation outputs.
-* **Local Fallbacks**: Local embedding vector indexing and mock agent fallbacks guarantee that the application compiles successfully even during offline sessions or Gemini API outages.
+* **Local Fallbacks**: Local embedding vector indexing and mock agent fallbacks guarantee that the application compiles successfully even during offline sessions or Groq API outages.
 
 ---
 
