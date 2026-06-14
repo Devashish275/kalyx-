@@ -155,7 +155,14 @@ def generate_pptx_deck(slides_data: list, notes_data: list, output_path: str) ->
             p_title = tf_title.paragraphs[0]
             p_title.text = slide_title
             p_title.font.name = "Georgia"
-            p_title.font.size = Pt(28)
+            # Dynamic title font size scaling based on length
+            title_len = len(slide_title)
+            if title_len > 50:
+                p_title.font.size = Pt(20)
+            elif title_len > 35:
+                p_title.font.size = Pt(24)
+            else:
+                p_title.font.size = Pt(28)
             p_title.font.bold = True
             p_title.font.color.rgb = CYAN
 
@@ -186,26 +193,55 @@ def generate_pptx_deck(slides_data: list, notes_data: list, output_path: str) ->
                 tf_code = code_box.text_frame
                 tf_code.word_wrap = True
 
+                # Dynamic scaling for code lines to fit in frame
+                total_code_chars = sum(len(b) for b in bullets)
+                num_code_lines = len(bullets)
+                if num_code_lines > 12 or total_code_chars > 800:
+                    code_font_size = Pt(8.5)
+                    code_space_after = Pt(2)
+                elif num_code_lines > 8 or total_code_chars > 500:
+                    code_font_size = Pt(10)
+                    code_space_after = Pt(4)
+                else:
+                    code_font_size = Pt(12)
+                    code_space_after = Pt(8)
+
                 for b_idx, bullet_text in enumerate(bullets):
                     p = tf_code.add_paragraph() if b_idx > 0 else tf_code.paragraphs[0]
                     p.text = bullet_text.replace("```", "")
                     p.font.name = "Consolas"
-                    p.font.size = Pt(12)
+                    p.font.size = code_font_size
                     p.font.color.rgb = CODE_GREEN
-                    p.space_after = Pt(8)
+                    p.space_after = code_space_after
             else:
                 # Standard Bullet Layout
                 content_box = slide.shapes.add_textbox(content_left, Inches(1.6), content_width, Inches(4.8))
                 tf_content = content_box.text_frame
                 tf_content.word_wrap = True
 
+                # Dynamic scaling for standard bullets based on length & quantity
+                total_chars = sum(len(b) for b in bullets)
+                num_bullets = len(bullets)
+                if total_chars > 1200 or num_bullets > 7:
+                    bullet_font_size = Pt(11)
+                    bullet_space_after = Pt(4)
+                elif total_chars > 800 or num_bullets > 5:
+                    bullet_font_size = Pt(12.5)
+                    bullet_space_after = Pt(6)
+                elif total_chars > 500 or num_bullets > 4:
+                    bullet_font_size = Pt(13.5)
+                    bullet_space_after = Pt(9)
+                else:
+                    bullet_font_size = Pt(15)
+                    bullet_space_after = Pt(14)
+
                 for b_idx, bullet_text in enumerate(bullets):
                     p = tf_content.add_paragraph() if b_idx > 0 else tf_content.paragraphs[0]
                     p.text = f"•  {bullet_text}"
                     p.font.name = "Arial"
-                    p.font.size = Pt(15)
+                    p.font.size = bullet_font_size
                     p.font.color.rgb = LIGHT_GRAY
-                    p.space_after = Pt(14)
+                    p.space_after = bullet_space_after
 
             # Right Column: Draw Premium Visual Overlay Highlight Card
             if visuals:
@@ -254,7 +290,14 @@ def generate_pptx_deck(slides_data: list, notes_data: list, output_path: str) ->
                         p_vis_body = tf_vis.add_paragraph()
                         p_vis_body.text = visuals
                         p_vis_body.font.name = "Arial"
-                        p_vis_body.font.size = Pt(9.5)
+                        # Dynamic sizing for visual caption
+                        vis_len = len(visuals)
+                        if vis_len > 250:
+                            p_vis_body.font.size = Pt(7.5)
+                        elif vis_len > 150:
+                            p_vis_body.font.size = Pt(8.5)
+                        else:
+                            p_vis_body.font.size = Pt(9.5)
                         p_vis_body.font.italic = True
                         p_vis_body.font.color.rgb = MUTED_GRAY
                     except Exception as img_err:
@@ -280,7 +323,14 @@ def generate_pptx_deck(slides_data: list, notes_data: list, output_path: str) ->
                     p_vis_body = tf_vis.add_paragraph()
                     p_vis_body.text = visuals
                     p_vis_body.font.name = "Arial"
-                    p_vis_body.font.size = Pt(11)
+                    # Dynamic sizing for visual description fallback
+                    vis_len = len(visuals)
+                    if vis_len > 250:
+                        p_vis_body.font.size = Pt(9)
+                    elif vis_len > 150:
+                        p_vis_body.font.size = Pt(10)
+                    else:
+                        p_vis_body.font.size = Pt(11)
                     p_vis_body.font.italic = True
                     p_vis_body.font.color.rgb = MUTED_GRAY
                     p_vis_body.space_after = Pt(8)
