@@ -1090,7 +1090,7 @@ export default function KalyxApp() {
                   <div className="flex justify-between items-center text-xs border-t border-slate-900 pt-4">
                     <div className="flex items-center gap-2 text-slate-400">
                       <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                      <span>4-Agent Validation Loop</span>
+                      <span>9-Agent Validation Loop</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-sky-400 font-semibold">
                       <span>Interactive Studio ready</span>
@@ -1352,7 +1352,7 @@ export default function KalyxApp() {
                       <div>
                         <h3 className="text-lg font-bold text-white">Upload Your Syllabus</h3>
                         <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                          To get started, select an existing course or create a new one, then upload your course syllabus PDF/TXT to activate the 4-agent analysis.
+                          To get started, select an existing course or create a new one, then upload your course syllabus PDF/TXT to activate the 9-agent analysis.
                         </p>
                       </div>
                       
@@ -1468,7 +1468,7 @@ export default function KalyxApp() {
                                 }`}
                               >
                                 <Play className="h-3.5 w-3.5" />
-                                <span>Trigger 4-Agent Analysis</span>
+                                <span>Trigger 9-Agent Analysis</span>
                               </button>
                             </form>
                           </div>
@@ -1661,7 +1661,7 @@ export default function KalyxApp() {
                     {/* Pipeline Summary Box */}
                     {totalDuration > 0 && (
                       <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 text-left flex flex-col gap-1.5 shadow-lg shadow-emerald-500/2">
-                        <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">4-Agent Workflow Completed</div>
+                        <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">9-Agent Workflow Completed</div>
                         <div className="text-lg font-black text-white">Total Execution Time: {totalDuration.toFixed(2)} seconds</div>
                       </div>
                     )}
